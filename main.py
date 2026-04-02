@@ -4,7 +4,7 @@ import mediapipe as mp
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 
-cap = cv2.VideoCapture(0)#use to turn on the web cam 
+cap = cv2.VideoCapture(0)# used to open the webcam 
 
 with mp_pose.Pose() as pose:
     while cap.isOpened():
@@ -12,7 +12,7 @@ with mp_pose.Pose() as pose:
         if not ret:
             break
 
-        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)#for colourful display 
+        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = pose.process(image)
 
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
