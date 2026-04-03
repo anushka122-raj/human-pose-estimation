@@ -4,13 +4,17 @@ import mediapipe as mp
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 
-cap = cv2.VideoCapture(0)# used to open the webcam 
+cap = cv2.VideoCapture(0)  # used to open the webcam 
 
 with mp_pose.Pose() as pose:
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
+
+        # Displaying project title on screen
+        cv2.putText(frame, "Human Pose Detection", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = pose.process(image)
