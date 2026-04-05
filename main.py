@@ -6,8 +6,7 @@ mp_pose = mp.solutions.pose
 
 cap = cv2.VideoCapture(0)  # used to open the webcam 
 
-# Counter for number of frames
-count = 0  
+count = 0  # frame counter
 
 with mp_pose.Pose() as pose:
     while cap.isOpened():
@@ -15,26 +14,31 @@ with mp_pose.Pose() as pose:
         if not ret:
             break
 
-        # Increase frame count
-        count += 1  
+        count += 1  # increase frame count
 
-        # Convert image to RGB
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = pose.process(image)
 
-        # Convert back to BGR
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-        # Draw pose landmarks if detected
+        # Draw pose if detected
         if results.pose_landmarks:
             mp_drawing.draw_landmarks(
                 image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
 
-        # Display project title
+            # Show "Person Detected"
+            cv2.putText(image, "Person Detected", (10, 110),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+        else:
+            # Show "No Person Detected"
+            cv2.putText(image, "No Person Detected", (10, 110),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+
+        # Title
         cv2.putText(image, "Human Pose Detection", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
-        # Display frame count
+        # Frame counter
         cv2.putText(image, f"Frame: {count}", (10, 70),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
 
