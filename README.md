@@ -50,7 +50,8 @@ Run the following command:
 python main.py
 
 
-#Future improvements 
+#Future Improvements 
+
 -Improve accuracy using deep learning models 
 -Add multi-person pose detection 
 -Integrate with mobile applications 
