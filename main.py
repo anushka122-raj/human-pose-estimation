@@ -1,31 +1,58 @@
 import cv2
+import time  # used for tracking time
 
-# Load face detection model
+# Haar Cascade is a pre-trained model used to detect faces in an image
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0)  # used to open webcam
 
 count = 0  # frame counter
+start_time = None  # to track when person appears
 
 while True:
     ret, frame = cap.read()
     if not ret:
         break
 
-    count += 1
+    count += 1  # increase frame count
 
+    # Convert to grayscale (required for face detection)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Detect faces
+    # detectMultiScale detects multiple faces in the frame
     faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-    # Draw rectangle on each face
+    # Draw rectangle on each detected face
     for (x, y, w, h) in faces:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0,255,0), 2)
 
-    # Number of persons = number of faces
+    # Number of persons = number of faces detected
     num_persons = len(faces)
+
+    # If at least one person is detected
+    if num_persons > 0:
+        # Start timer if not already started
+        if start_time is None:
+            start_time = time.time()
+
+        # Calculate how long person is visible
+        elapsed_time = int(time.time() - start_time)
+
+        # Show detection message
+        cv2.putText(frame, "Person Detected", (10, 110),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+
+        # Show time on screen
+        cv2.putText(frame, f"Time: {elapsed_time} sec", (10, 150),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,0), 2)
+    else:
+        # If no person detected
+        cv2.putText(frame, "No Person Detected", (10, 110),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+
+        # Reset timer
+        start_time = None
 
     # Display number of persons
     cv2.putText(frame, f"Persons: {num_persons}", (10, 30),
