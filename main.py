@@ -30,6 +30,9 @@ while True:
     # Number of persons = number of faces detected
     num_persons = len(faces)
 
+    # Draw background box to improve text visibility
+    cv2.rectangle(frame, (5, 5), (350, 180), (50, 50, 50), -1)
+
     # If at least one person is detected
     if num_persons > 0:
         # Start timer if not already started
@@ -39,33 +42,36 @@ while True:
         # Calculate how long person is visible
         elapsed_time = int(time.time() - start_time)
 
-        # Show detection message
-        cv2.putText(frame, "Person Detected", (10, 110),
+        # Show detection status
+        cv2.putText(frame, "Person Detected", (10, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
         # Show time on screen
-        cv2.putText(frame, f"Time: {elapsed_time} sec", (10, 150),
+        cv2.putText(frame, f"Time: {elapsed_time} sec", (10, 160),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,0), 2)
+
     else:
-        # If no person detected
-        cv2.putText(frame, "No Person Detected", (10, 110),
+        # Show no detection message
+        cv2.putText(frame, "No Person Detected", (10, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
 
-        # Reset timer
+        # Reset timer when no person is detected
         start_time = None
 
-    # Display number of persons
-    cv2.putText(frame, f"Persons: {num_persons}", (10, 30),
+    # Show number of detected persons
+    cv2.putText(frame, f"Persons: {num_persons}", (10, 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
-    # Display frame count
-    cv2.putText(frame, f"Frame: {count}", (10, 70),
+    # Show frame count
+    cv2.putText(frame, f"Frame: {count}", (10, 80),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
 
     cv2.imshow("Person Count", frame)
 
+    # Press 'q' to exit the program
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break
 
+# Release webcam and close all windows
 cap.release()
 cv2.destroyAllWindows()
