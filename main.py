@@ -1,5 +1,6 @@
 import cv2
 import time  # used for tracking time
+import winsound  # used for beep sound (Windows)
 
 # Haar Cascade is a pre-trained model used to detect faces in an image
 face_cascade = cv2.CascadeClassifier(
@@ -9,6 +10,7 @@ cap = cv2.VideoCapture(0)  # used to open webcam
 
 count = 0  # frame counter
 start_time = None  # to track when person appears
+person_present = False  # to control beep (avoid continuous sound)
 
 while True:
     ret, frame = cap.read()
@@ -35,6 +37,12 @@ while True:
 
     # If at least one person is detected
     if num_persons > 0:
+
+        # 🔊 Play sound ONLY when person appears first time
+        if not person_present:
+            winsound.Beep(1000, 300)  # frequency, duration
+            person_present = True  # mark that person is present
+
         # Start timer if not already started
         if start_time is None:
             start_time = time.time()
@@ -57,6 +65,9 @@ while True:
 
         # Reset timer when no person is detected
         start_time = None
+
+        # Allow beep again when next person appears
+        person_present = False
 
     # Show number of detected persons
     cv2.putText(frame, f"Persons: {num_persons}", (10, 40),
