@@ -33,40 +33,43 @@ while True:
     num_persons = len(faces)
 
     # Draw background box to improve text visibility
-    cv2.rectangle(frame, (5, 5), (350, 180), (50, 50, 50), -1)
+    cv2.rectangle(frame, (5, 5), (350, 200), (50, 50, 50), -1)
 
-    # If at least one person is detected
-    if num_persons > 0:
+    # Display different messages based on number of persons
+    if num_persons == 0:
+        # No person detected
+        cv2.putText(frame, "No Person Detected", (10, 120),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
 
-        # 🔊 Play sound ONLY when person appears first time
+        # Reset timer and beep state
+        start_time = None
+        person_present = False
+
+    elif num_persons == 1:
+        # 🔊 Beep only when person appears first time
         if not person_present:
-            winsound.Beep(1000, 300)  # frequency, duration
-            person_present = True  # mark that person is present
+            winsound.Beep(1000, 300)
+            person_present = True
 
-        # Start timer if not already started
+        # Start timer if not started
         if start_time is None:
             start_time = time.time()
 
-        # Calculate how long person is visible
         elapsed_time = int(time.time() - start_time)
 
-        # Show detection status
-        cv2.putText(frame, "Person Detected", (10, 120),
+        cv2.putText(frame, "1 Person Detected", (10, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
-        # Show time on screen
         cv2.putText(frame, f"Time: {elapsed_time} sec", (10, 160),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,0), 2)
 
     else:
-        # Show no detection message
-        cv2.putText(frame, "No Person Detected", (10, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        # Multiple persons detected
+        cv2.putText(frame, "Multiple Persons Detected", (10, 120),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
 
-        # Reset timer when no person is detected
+        # Reset timer (optional choice)
         start_time = None
-
-        # Allow beep again when next person appears
         person_present = False
 
     # Show number of detected persons
