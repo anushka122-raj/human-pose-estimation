@@ -25,9 +25,13 @@ while True:
     # detectMultiScale detects multiple faces in the frame
     faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-    # Draw rectangle on each detected face
-    for (x, y, w, h) in faces:
+    # 🏷️ Draw rectangle and label each detected face
+    for i, (x, y, w, h) in enumerate(faces):
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0,255,0), 2)
+
+        # Label each face (Face 1, Face 2, ...)
+        cv2.putText(frame, f"Face {i+1}", (x, y-10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
 
     # Number of persons = number of faces detected
     num_persons = len(faces)
@@ -68,7 +72,7 @@ while True:
         cv2.putText(frame, "Multiple Persons Detected", (10, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
 
-        # Reset timer (optional choice)
+        # Reset timer and beep state
         start_time = None
         person_present = False
 
