@@ -1,95 +1,82 @@
 import cv2
-import time  # used for tracking time
-import winsound  # used for beep sound (Windows)
+import mediapipe as mp
+import time  # used to calculate FPS (Frames Per Second)
 
-# Haar Cascade is a pre-trained model used to detect faces in an image
-face_cascade = cv2.CascadeClassifier(
-    cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+# MediaPipe drawing utility (used to draw landmarks and connections)
+mp_drawing = mp.solutions.drawing_utils
 
-cap = cv2.VideoCapture(0)  # used to open webcam
+# MediaPipe Pose model (used for human pose detection)
+mp_pose = mp.solutions.pose
 
-count = 0  # frame counter
-start_time = None  # to track when person appears
-person_present = False  # to control beep (avoid continuous sound)
+# Open webcam
+cap = cv2.VideoCapture(0)
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+# Variable used for FPS calculation
+prev_time = 0
 
-    count += 1  # increase frame count
+# Initialize MediaPipe Pose
+with mp_pose.Pose() as pose:
 
-    # Convert to grayscale (required for face detection)
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # Run loop while webcam is active
+    while cap.isOpened():
 
-    # detectMultiScale detects multiple faces in the frame
-    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+        # Read frame from webcam
+        ret, frame = cap.read()
 
-    # 🏷️ Draw rectangle and label each detected face
-    for i, (x, y, w, h) in enumerate(faces):
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0,255,0), 2)
+        # Exit if frame is not captured
+        if not ret:
+            break
 
-        # Label each face (Face 1, Face 2, ...)
-        cv2.putText(frame, f"Face {i+1}", (x, y-10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
+        # Convert BGR image to RGB
+        # MediaPipe works with RGB images
+        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    # Number of persons = number of faces detected
-    num_persons = len(faces)
+        # Detect body landmarks
+        results = pose.process(image)
 
-    # Draw background box to improve text visibility
-    cv2.rectangle(frame, (5, 5), (350, 200), (50, 50, 50), -1)
+        # Convert image back to BGR
+        # OpenCV displays images in BGR format
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-    # Display different messages based on number of persons
-    if num_persons == 0:
-        # No person detected
-        cv2.putText(frame, "No Person Detected", (10, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        # Check if pose landmarks are detected
+        if results.pose_landmarks:
 
-        # Reset timer and beep state
-        start_time = None
-        person_present = False
+            # Draw body skeleton and landmark points
+            mp_drawing.draw_landmarks(
+                image,
+                results.pose_landmarks,
+                mp_pose.POSE_CONNECTIONS
+            )
 
-    elif num_persons == 1:
-        # 🔊 Beep only when person appears first time
-        if not person_present:
-            winsound.Beep(1000, 300)
-            person_present = True
+        # Calculate FPS
+        current_time = time.time()
 
-        # Start timer if not started
-        if start_time is None:
-            start_time = time.time()
+        # FPS = Frames Processed Per Second
+        fps = 1 / (current_time - prev_time)
 
-        elapsed_time = int(time.time() - start_time)
+        # Update previous time for next calculation
+        prev_time = current_time
 
-        cv2.putText(frame, "1 Person Detected", (10, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+        # Display FPS on screen
+        cv2.putText(
+            image,
+            f"FPS: {int(fps)}",
+            (20, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 0),
+            2
+        )
 
-        cv2.putText(frame, f"Time: {elapsed_time} sec", (10, 160),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,0), 2)
+        # Show output window
+        cv2.imshow("Pose Detection", image)
 
-    else:
-        # Multiple persons detected
-        cv2.putText(frame, "Multiple Persons Detected", (10, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
+        # Press 'q' to quit program
+        if cv2.waitKey(10) & 0xFF == ord('q'):
+            break
 
-        # Reset timer and beep state
-        start_time = None
-        person_present = False
-
-    # Show number of detected persons
-    cv2.putText(frame, f"Persons: {num_persons}", (10, 40),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
-
-    # Show frame count
-    cv2.putText(frame, f"Frame: {count}", (10, 80),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
-
-    cv2.imshow("Person Count", frame)
-
-    # Press 'q' to exit the program
-    if cv2.waitKey(10) & 0xFF == ord('q'):
-        break
-
-# Release webcam and close all windows
+# Release webcam resources
 cap.release()
+
+# Close all OpenCV windows
 cv2.destroyAllWindows()
