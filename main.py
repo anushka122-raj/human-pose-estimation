@@ -1,6 +1,30 @@
 import cv2
 import mediapipe as mp
+import numpy as np
 import time  # used to calculate FPS (Frames Per Second)
+
+# Function to calculate angle between 3 points
+def calculate_angle(a, b, c):
+
+    a = np.array(a)
+    b = np.array(b)
+    c = np.array(c)
+
+    radians = np.arctan2(
+        c[1] - b[1],
+        c[0] - b[0]
+    ) - np.arctan2(
+        a[1] - b[1],
+        a[0] - b[0]
+    )
+
+    angle = np.abs(radians * 180.0 / np.pi)
+
+    if angle > 180:
+        angle = 360 - angle
+
+    return angle
+
 
 # MediaPipe drawing utility (used to draw landmarks and connections)
 mp_drawing = mp.solutions.drawing_utils
@@ -47,6 +71,39 @@ with mp_pose.Pose() as pose:
                 results.pose_landmarks,
                 mp_pose.POSE_CONNECTIONS
             )
+
+            # Get all landmarks
+            landmarks = results.pose_landmarks.landmark
+
+            # Left shoulder landmark
+            left_shoulder = landmarks[
+                mp_pose.PoseLandmark.LEFT_SHOULDER.value
+            ]
+
+            # Left elbow landmark
+            left_elbow = landmarks[
+                mp_pose.PoseLandmark.LEFT_ELBOW.value
+            ]
+
+            # Left wrist landmark
+            left_wrist = landmarks[
+                mp_pose.PoseLandmark.LEFT_WRIST.value
+            ]
+
+            # Convert landmarks to x,y coordinates
+            shoulder = [left_shoulder.x, left_shoulder.y]
+            elbow = [left_elbow.x, left_elbow.y]
+            wrist = [left_wrist.x, left_wrist.y]
+
+            # Calculate elbow angle
+            angle = calculate_angle(
+                shoulder,
+                elbow,
+                wrist
+            )
+
+            # Print angle in terminal
+            print("Left Elbow Angle:", int(angle))
 
         # Calculate FPS
         current_time = time.time()
