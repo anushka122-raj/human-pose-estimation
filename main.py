@@ -1,9 +1,11 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-import time  # used to calculate FPS (Frames Per Second)
+import time
 
-# Function to calculate angle between 3 points
+# -----------------------------
+# Function to calculate angle
+# -----------------------------
 def calculate_angle(a, b, c):
 
     a = np.array(a)
@@ -26,114 +28,213 @@ def calculate_angle(a, b, c):
     return angle
 
 
-# MediaPipe drawing utility (used to draw landmarks and connections)
+# -----------------------------
+# MediaPipe Setup
+# -----------------------------
 mp_drawing = mp.solutions.drawing_utils
-
-# MediaPipe Pose model (used for human pose detection)
 mp_pose = mp.solutions.pose
 
-# Open webcam
+# -----------------------------
+# Webcam
+# -----------------------------
 cap = cv2.VideoCapture(0)
 
-# Variable used for FPS calculation
+# FPS Calculation
 prev_time = 0
 
-# Initialize MediaPipe Pose
-with mp_pose.Pose() as pose:
+# Rep Counter Variables
+counter = 0
+stage = None
 
-    # Run loop while webcam is active
+# -----------------------------
+# Pose Model
+# -----------------------------
+with mp_pose.Pose(
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5) as pose:
+
     while cap.isOpened():
 
-        # Read frame from webcam
         ret, frame = cap.read()
 
-        # Exit if frame is not captured
         if not ret:
             break
 
-        # Convert BGR image to RGB
-        # MediaPipe works with RGB images
+        # Convert BGR → RGB
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Detect body landmarks
+        image.flags.writeable = False
+
         results = pose.process(image)
 
-        # Convert image back to BGR
-        # OpenCV displays images in BGR format
+        image.flags.writeable = True
+
+        # Convert RGB → BGR
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-        # Check if pose landmarks are detected
-        if results.pose_landmarks:
+        try:
 
-            # Draw body skeleton and landmark points
-            mp_drawing.draw_landmarks(
-                image,
-                results.pose_landmarks,
-                mp_pose.POSE_CONNECTIONS
-            )
-
-            # Get all landmarks
             landmarks = results.pose_landmarks.landmark
 
-            # Left shoulder landmark
-            left_shoulder = landmarks[
-                mp_pose.PoseLandmark.LEFT_SHOULDER.value
+            # LEFT ARM LANDMARKS
+            shoulder = [
+                landmarks[
+                    mp_pose.PoseLandmark.LEFT_SHOULDER.value
+                ].x,
+
+                landmarks[
+                    mp_pose.PoseLandmark.LEFT_SHOULDER.value
+                ].y
             ]
 
-            # Left elbow landmark
-            left_elbow = landmarks[
-                mp_pose.PoseLandmark.LEFT_ELBOW.value
+            elbow = [
+                landmarks[
+                    mp_pose.PoseLandmark.LEFT_ELBOW.value
+                ].x,
+
+                landmarks[
+                    mp_pose.PoseLandmark.LEFT_ELBOW.value
+                ].y
             ]
 
-            # Left wrist landmark
-            left_wrist = landmarks[
-                mp_pose.PoseLandmark.LEFT_WRIST.value
+            wrist = [
+                landmarks[
+                    mp_pose.PoseLandmark.LEFT_WRIST.value
+                ].x,
+
+                landmarks[
+                    mp_pose.PoseLandmark.LEFT_WRIST.value
+                ].y
             ]
 
-            # Convert landmarks to x,y coordinates
-            shoulder = [left_shoulder.x, left_shoulder.y]
-            elbow = [left_elbow.x, left_elbow.y]
-            wrist = [left_wrist.x, left_wrist.y]
-
-            # Calculate elbow angle
+            # Calculate Angle
             angle = calculate_angle(
                 shoulder,
                 elbow,
                 wrist
             )
 
-            # Print angle in terminal
-            print("Left Elbow Angle:", int(angle))
+            # Convert elbow position to screen coordinates
+            elbow_coords = tuple(
+                np.multiply(
+                    elbow,
+                    [640, 480]
+                ).astype(int)
+            )
 
-        # Calculate FPS
-        current_time = time.time()
+            # Show angle on elbow
+            cv2.putText(
+                image,
+                str(int(angle)),
+                elbow_coords,
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (255, 255, 255),
+                2
+            )
 
-        # FPS = Frames Processed Per Second
-        fps = 1 / (current_time - prev_time)
+            # -----------------------------
+            # Rep Counter Logic
+            # -----------------------------
 
-        # Update previous time for next calculation
-        prev_time = current_time
+            # Arm fully extended
+            if angle > 160:
+                stage = "DOWN"
 
-        # Display FPS on screen
+            # Arm curled
+            if angle < 40 and stage == "DOWN":
+                stage = "UP"
+                counter += 1
+
+        except:
+            pass
+
+        # -----------------------------
+        # Status Box
+        # -----------------------------
+        cv2.rectangle(
+            image,
+            (0, 0),
+            (250, 120),
+            (0, 0, 0),
+            -1
+        )
+
+        # Reps
         cv2.putText(
             image,
-            f"FPS: {int(fps)}",
-            (20, 40),
+            "REPS",
+            (15, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0),
+            0.7,
+            (255,255,255),
             2
         )
 
-        # Show output window
-        cv2.imshow("Pose Detection", image)
+        cv2.putText(
+            image,
+            str(counter),
+            (15, 80),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.5,
+            (0,255,0),
+            3
+        )
 
-        # Press 'q' to quit program
+        # Stage
+        cv2.putText(
+            image,
+            "STAGE",
+            (120, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255,255,255),
+            2
+        )
+
+        cv2.putText(
+            image,
+            str(stage),
+            (120, 80),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0,255,255),
+            3
+        )
+
+        # -----------------------------
+        # FPS
+        # -----------------------------
+        current_time = time.time()
+
+        fps = 1 / (current_time - prev_time)
+
+        prev_time = current_time
+
+        cv2.putText(
+            image,
+            f"FPS: {int(fps)}",
+            (20, 150),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (0,255,0),
+            2
+        )
+
+        # Draw Skeleton
+        mp_drawing.draw_landmarks(
+            image,
+            results.pose_landmarks,
+            mp_pose.POSE_CONNECTIONS
+        )
+
+        cv2.imshow(
+            "AI Fitness Tracker",
+            image
+        )
+
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
 
-# Release webcam resources
 cap.release()
-
-# Close all OpenCV windows
 cv2.destroyAllWindows()
