@@ -2,7 +2,8 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import time
-import pyttsx3   # NEW: voice feedback
+import pyttsx3
+import csv   # NEW: for workout logging
 
 # -----------------------------
 # Function to calculate angle
@@ -48,6 +49,14 @@ prev_time = 0
 # Rep Counter Variables
 counter = 0
 stage = None
+
+# -----------------------------
+# Workout Logging Setup
+# -----------------------------
+session_start = time.time()
+log_file = open("workout_log.csv", mode="w", newline="")
+writer = csv.writer(log_file)
+writer.writerow(["Rep Count", "Stage", "Time (s)"])  # header row
 
 # -----------------------------
 # Pose Model
@@ -97,7 +106,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
             # -----------------------------
-            # Rep Counter Logic + Voice
+            # Rep Counter Logic + Voice + Logging
             # -----------------------------
             if angle > 160:
                 stage = "DOWN"
@@ -105,6 +114,10 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                 stage = "UP"
                 counter += 1
                 speak(f"Good rep {counter}")   # Voice feedback
+
+                # Log rep to CSV
+                duration = int(time.time() - session_start)
+                writer.writerow([counter, stage, duration])
 
         except:
             pass
@@ -124,25 +137,3 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         cv2.putText(image, "STAGE", (120, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         cv2.putText(image, str(stage), (120, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 3)
-
-        # -----------------------------
-        # FPS
-        # -----------------------------
-        current_time = time.time()
-        fps = 1 / (current_time - prev_time)
-        prev_time = current_time
-
-        cv2.putText(image, f"FPS: {int(fps)}", (20, 150),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-
-        # Draw Skeleton
-        mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
-
-        cv2.imshow("AI Fitness Tracker", image)
-
-        if cv2.waitKey(10) & 0xFF == ord('q'):
-            break
-
-cap.release()
-cv2.destroyAllWindows()
