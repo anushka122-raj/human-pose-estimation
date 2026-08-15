@@ -3,7 +3,7 @@ import mediapipe as mp
 import numpy as np
 import time
 import pyttsx3
-import csv   # NEW: for workout logging
+import csv   # for workout logging
 
 # -----------------------------
 # Function to calculate angle
@@ -42,9 +42,6 @@ mp_pose = mp.solutions.pose
 # Webcam
 # -----------------------------
 cap = cv2.VideoCapture(0)
-
-# FPS Calculation
-prev_time = 0
 
 # Rep Counter Variables
 counter = 0
@@ -137,3 +134,30 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         cv2.putText(image, "STAGE", (120, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         cv2.putText(image, str(stage), (120, 80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
+
+        # Show frame
+        cv2.imshow('Workout Tracker', image)
+
+        if cv2.waitKey(10) & 0xFF == ord('q'):
+            break
+
+# -----------------------------
+# Workout Summary Feature
+# -----------------------------
+session_end = time.time()
+total_time = int(session_end - session_start)
+avg_rep_time = round(total_time / counter, 2) if counter > 0 else 0
+
+summary = f"Workout finished! Total reps: {counter}, Duration: {total_time} seconds, Avg time per rep: {avg_rep_time} seconds."
+print(summary)
+speak(summary)
+
+# Save summary to CSV
+writer.writerow([])
+writer.writerow(["Summary", "Total Reps", "Duration (s)", "Avg Rep Time (s)"])
+writer.writerow(["", counter, total_time, avg_rep_time])
+
+log_file.close()
+cap.release()
+cv2.destroyAllWindows()
