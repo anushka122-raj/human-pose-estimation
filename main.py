@@ -56,6 +56,12 @@ writer = csv.writer(log_file)
 writer.writerow(["Rep Count", "Stage", "Time (s)"])  # header row
 
 # -----------------------------
+# User Input: Weight (kg)
+# -----------------------------
+user_weight = 60  # <-- change this to your weight in kg
+MET_value = 3.8   # MET for bicep curls
+
+# -----------------------------
 # Pose Model
 # -----------------------------
 with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
@@ -122,7 +128,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         # -----------------------------
         # Status Box
         # -----------------------------
-        cv2.rectangle(image, (0, 0), (250, 120), (0, 0, 0), -1)
+        cv2.rectangle(image, (0, 0), (250, 150), (0, 0, 0), -1)
 
         # Reps
         cv2.putText(image, "REPS", (15, 30),
@@ -143,20 +149,24 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
             break
 
 # -----------------------------
-# Workout Summary Feature
+# Workout Summary Feature + Calories
 # -----------------------------
 session_end = time.time()
 total_time = int(session_end - session_start)
 avg_rep_time = round(total_time / counter, 2) if counter > 0 else 0
 
-summary = f"Workout finished! Total reps: {counter}, Duration: {total_time} seconds, Avg time per rep: {avg_rep_time} seconds."
+# Calories burned estimation
+duration_hours = total_time / 3600
+calories_burned = round(MET_value * user_weight * duration_hours, 2)
+
+summary = f"Workout finished! Total reps: {counter}, Duration: {total_time} seconds, Avg time per rep: {avg_rep_time} seconds, Calories burned: {calories_burned} kcal."
 print(summary)
 speak(summary)
 
 # Save summary to CSV
 writer.writerow([])
-writer.writerow(["Summary", "Total Reps", "Duration (s)", "Avg Rep Time (s)"])
-writer.writerow(["", counter, total_time, avg_rep_time])
+writer.writerow(["Summary", "Total Reps", "Duration (s)", "Avg Rep Time (s)", "Calories Burned (kcal)"])
+writer.writerow(["", counter, total_time, avg_rep_time, calories_burned])
 
 log_file.close()
 cap.release()
