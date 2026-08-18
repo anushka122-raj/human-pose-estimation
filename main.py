@@ -56,6 +56,7 @@ cap = cv2.VideoCapture(0)
 counter = 0
 stage = None
 exercise = "Bicep Curl"   # default
+score = 0
 
 # -----------------------------
 # Workout Logging Setup
@@ -117,7 +118,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                        landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
             pushup_angle = calculate_angle(shoulder_r, elbow_r, wrist_r)
 
-            # Exercise Detection
+            # Exercise Detection + Form Score
             if arm_angle < 40 or arm_angle > 160:
                 exercise = "Bicep Curl"
                 score = form_score(arm_angle, 40, 160)
@@ -165,7 +166,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
             pass
 
         # Status Box
-        cv2.rectangle(image, (0, 0), (320, 180), (0, 0, 0), -1)
+        cv2.rectangle(image, (0, 0), (340, 200), (0, 0, 0), -1)
         cv2.putText(image, f"Exercise: {exercise}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         cv2.putText(image, f"Reps: {counter}", (10, 70),
