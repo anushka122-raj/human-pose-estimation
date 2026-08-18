@@ -3,7 +3,7 @@ import mediapipe as mp
 import numpy as np
 import time
 import pyttsx3
-import csv   # for workout logging
+import csv
 
 # -----------------------------
 # Function to calculate angle
@@ -18,15 +18,14 @@ def calculate_angle(a, b, c):
 
     if angle > 180:
         angle = 360 - angle
-
     return angle
 
 # -----------------------------
 # Voice Engine Setup
 # -----------------------------
 engine = pyttsx3.init()
-engine.setProperty('rate', 150)   # speed of speech
-engine.setProperty('volume', 1.0) # max volume
+engine.setProperty('rate', 150)
+engine.setProperty('volume', 1.0)
 
 def speak(text):
     engine.say(text)
@@ -46,6 +45,7 @@ cap = cv2.VideoCapture(0)
 # Rep Counter Variables
 counter = 0
 stage = None
+exercise = "Bicep Curl"   # default exercise
 
 # -----------------------------
 # Workout Logging Setup
@@ -53,13 +53,13 @@ stage = None
 session_start = time.time()
 log_file = open("workout_log.csv", mode="w", newline="")
 writer = csv.writer(log_file)
-writer.writerow(["Rep Count", "Stage", "Time (s)"])  # header row
+writer.writerow(["Exercise", "Rep Count", "Stage", "Time (s)"])
 
 # -----------------------------
 # User Input: Weight (kg)
 # -----------------------------
-user_weight = 60  # <-- change this to your weight in kg
-MET_value = 3.8   # MET for bicep curls
+user_weight = 60
+MET_values = {"Bicep Curl": 3.8, "Squat": 5.0, "Push-up": 8.0}
 
 # -----------------------------
 # Pose Model
@@ -71,7 +71,6 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         if not ret:
             break
 
-        # Convert BGR → RGB
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         image.flags.writeable = False
         results = pose.process(image)
@@ -81,7 +80,9 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         try:
             landmarks = results.pose_landmarks.landmark
 
-            # LEFT ARM LANDMARKS
+            # -----------------------------
+            # Bicep Curl (Arm)
+            # -----------------------------
             shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
                         landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
             elbow = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
@@ -89,38 +90,74 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
             wrist = [landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].x,
                      landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
 
-            # Calculate Angle
-            angle = calculate_angle(shoulder, elbow, wrist)
-
-            # Convert elbow position to screen coordinates
-            elbow_coords = tuple(np.multiply(elbow, [640, 480]).astype(int))
+            arm_angle = calculate_angle(shoulder, elbow, wrist)
 
             # -----------------------------
-            # Color-coded feedback
+            # Squat (Leg)
             # -----------------------------
-            if 40 < angle < 160:
-                color = (0, 255, 0)   # Green = good form
-            else:
-                color = (0, 0, 255)   # Red = bad form
-                speak("Fix your form!")   # Voice warning
+            hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+                   landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+            knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+                    landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+            ankle = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
+                     landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
 
-            # Show angle on elbow
-            cv2.putText(image, str(int(angle)), elbow_coords,
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            leg_angle = calculate_angle(hip, knee, ankle)
 
             # -----------------------------
-            # Rep Counter Logic + Voice + Logging
+            # Push-up (Arm + Shoulder)
             # -----------------------------
-            if angle > 160:
-                stage = "DOWN"
-            if angle < 40 and stage == "DOWN":
-                stage = "UP"
-                counter += 1
-                speak(f"Good rep {counter}")   # Voice feedback
+            shoulder_r = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
+                          landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
+            elbow_r = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
+                       landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
+            wrist_r = [landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,
+                       landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
 
-                # Log rep to CSV
-                duration = int(time.time() - session_start)
-                writer.writerow([counter, stage, duration])
+            pushup_angle = calculate_angle(shoulder_r, elbow_r, wrist_r)
+
+            # -----------------------------
+            # Exercise Detection Logic
+            # -----------------------------
+            if arm_angle < 40 or arm_angle > 160:
+                exercise = "Bicep Curl"
+            elif leg_angle < 70 or leg_angle > 160:
+                exercise = "Squat"
+            elif pushup_angle < 60 or pushup_angle > 160:
+                exercise = "Push-up"
+
+            # -----------------------------
+            # Rep Counting Logic
+            # -----------------------------
+            if exercise == "Bicep Curl":
+                if arm_angle > 160:
+                    stage = "DOWN"
+                if arm_angle < 40 and stage == "DOWN":
+                    stage = "UP"
+                    counter += 1
+                    speak(f"Good rep {counter} {exercise}")
+                    duration = int(time.time() - session_start)
+                    writer.writerow([exercise, counter, stage, duration])
+
+            elif exercise == "Squat":
+                if leg_angle > 160:
+                    stage = "UP"
+                if leg_angle < 70 and stage == "UP":
+                    stage = "DOWN"
+                    counter += 1
+                    speak(f"Good rep {counter} {exercise}")
+                    duration = int(time.time() - session_start)
+                    writer.writerow([exercise, counter, stage, duration])
+
+            elif exercise == "Push-up":
+                if pushup_angle > 160:
+                    stage = "UP"
+                if pushup_angle < 60 and stage == "UP":
+                    stage = "DOWN"
+                    counter += 1
+                    speak(f"Good rep {counter} {exercise}")
+                    duration = int(time.time() - session_start)
+                    writer.writerow([exercise, counter, stage, duration])
 
         except:
             pass
@@ -128,42 +165,32 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         # -----------------------------
         # Status Box
         # -----------------------------
-        cv2.rectangle(image, (0, 0), (250, 150), (0, 0, 0), -1)
-
-        # Reps
-        cv2.putText(image, "REPS", (15, 30),
+        cv2.rectangle(image, (0, 0), (300, 150), (0, 0, 0), -1)
+        cv2.putText(image, f"Exercise: {exercise}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.putText(image, str(counter), (15, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
-
-        # Stage
-        cv2.putText(image, "STAGE", (120, 30),
+        cv2.putText(image, f"Reps: {counter}", (10, 70),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+        cv2.putText(image, f"Stage: {stage}", (10, 110),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.putText(image, str(stage), (120, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 
-        # Show frame
         cv2.imshow('Workout Tracker', image)
 
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
 
 # -----------------------------
-# Workout Summary Feature + Calories
+# Workout Summary
 # -----------------------------
 session_end = time.time()
 total_time = int(session_end - session_start)
 avg_rep_time = round(total_time / counter, 2) if counter > 0 else 0
+MET_value = MET_values.get(exercise, 3.8)
+calories_burned = round(MET_value * user_weight * (total_time / 3600), 2)
 
-# Calories burned estimation
-duration_hours = total_time / 3600
-calories_burned = round(MET_value * user_weight * duration_hours, 2)
-
-summary = f"Workout finished! Total reps: {counter}, Duration: {total_time} seconds, Avg time per rep: {avg_rep_time} seconds, Calories burned: {calories_burned} kcal."
+summary = f"Workout finished! Exercise: {exercise}, Total reps: {counter}, Duration: {total_time}s, Avg time per rep: {avg_rep_time}s, Calories burned: {calories_burned} kcal."
 print(summary)
 speak(summary)
 
-# Save summary to CSV
 writer.writerow([])
 writer.writerow(["Summary", "Total Reps", "Duration (s)", "Avg Rep Time (s)", "Calories Burned (kcal)"])
 writer.writerow(["", counter, total_time, avg_rep_time, calories_burned])
