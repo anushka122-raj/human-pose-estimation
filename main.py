@@ -55,7 +55,7 @@ cap = cv2.VideoCapture(0)
 # Rep Counter Variables
 counter = 0
 stage = None
-exercise = "Bicep Curl"   # default
+exercise = None   # will be chosen by user
 score = 0
 
 # -----------------------------
@@ -71,6 +71,27 @@ writer.writerow(["Exercise", "Rep Count", "Stage", "Time (s)", "Form Score"])
 # -----------------------------
 user_weight = 60
 MET_values = {"Bicep Curl": 3.8, "Squat": 5.0, "Push-up": 8.0}
+
+# -----------------------------
+# Ask user to select exercise
+# -----------------------------
+print("Select exercise:")
+print("1 - Bicep Curl")
+print("2 - Squat")
+print("3 - Push-up")
+choice = input("Enter choice (1/2/3): ")
+
+if choice == "1":
+    exercise = "Bicep Curl"
+elif choice == "2":
+    exercise = "Squat"
+elif choice == "3":
+    exercise = "Push-up"
+else:
+    print("Invalid choice, defaulting to Bicep Curl")
+    exercise = "Bicep Curl"
+
+speak(f"Starting {exercise} tracking!")
 
 # -----------------------------
 # Pose Model
@@ -91,7 +112,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         try:
             landmarks = results.pose_landmarks.landmark
 
-            # Bicep Curl (Arm)
+            # Bicep Curl landmarks
             shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
                         landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
             elbow = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
@@ -100,7 +121,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                      landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
             arm_angle = calculate_angle(shoulder, elbow, wrist)
 
-            # Squat (Leg)
+            # Squat landmarks
             hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
                    landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
             knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
@@ -109,7 +130,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                      landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
             leg_angle = calculate_angle(hip, knee, ankle)
 
-            # Push-up (Arm)
+            # Push-up landmarks
             shoulder_r = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
                           landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
             elbow_r = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
@@ -118,21 +139,11 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                        landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
             pushup_angle = calculate_angle(shoulder_r, elbow_r, wrist_r)
 
-            # Exercise Detection + Form Score
-            if arm_angle < 40 or arm_angle > 160:
-                exercise = "Bicep Curl"
-                score = form_score(arm_angle, 40, 160)
-            elif leg_angle < 70 or leg_angle > 160:
-                exercise = "Squat"
-                score = form_score(leg_angle, 70, 160)
-            elif pushup_angle < 60 or pushup_angle > 160:
-                exercise = "Push-up"
-                score = form_score(pushup_angle, 60, 160)
-            else:
-                score = 0
-
-            # Rep Counting Logic
+            # -----------------------------
+            # Rep Counting Logic per exercise
+            # -----------------------------
             if exercise == "Bicep Curl":
+                score = form_score(arm_angle, 40, 160)
                 if arm_angle > 160:
                     stage = "DOWN"
                 if arm_angle < 40 and stage == "DOWN":
@@ -143,6 +154,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                     writer.writerow([exercise, counter, stage, duration, score])
 
             elif exercise == "Squat":
+                score = form_score(leg_angle, 70, 160)
                 if leg_angle > 160:
                     stage = "UP"
                 if leg_angle < 70 and stage == "UP":
@@ -153,6 +165,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                     writer.writerow([exercise, counter, stage, duration, score])
 
             elif exercise == "Push-up":
+                score = form_score(pushup_angle, 60, 160)
                 if pushup_angle > 160:
                     stage = "UP"
                 if pushup_angle < 60 and stage == "UP":
@@ -181,7 +194,9 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
 
+# -----------------------------
 # Workout Summary
+# -----------------------------
 session_end = time.time()
 total_time = int(session_end - session_start)
 avg_rep_time = round(total_time / counter, 2) if counter > 0 else 0
