@@ -178,7 +178,9 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         except:
             pass
 
+        # -----------------------------
         # Status Box
+        # -----------------------------
         cv2.rectangle(image, (0, 0), (340, 200), (0, 0, 0), -1)
         cv2.putText(image, f"Exercise: {exercise}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
@@ -191,8 +193,21 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
 
         cv2.imshow('Workout Tracker', image)
 
-        if cv2.waitKey(10) & 0xFF == ord('q'):
+        # -----------------------------
+        # Key Controls for switching exercises
+        # -----------------------------
+        key = cv2.waitKey(10) & 0xFF
+        if key == ord('q'):
             break
+        elif key == ord('1'):
+            exercise = "Bicep Curl"
+            speak("Now tracking Bicep Curls")
+        elif key == ord('2'):
+            exercise = "Squat"
+            speak("Now tracking Squats")
+        elif key == ord('3'):
+            exercise = "Push-up"
+            speak("Now tracking Push-ups")
 
 # -----------------------------
 # Workout Summary
@@ -203,14 +218,4 @@ avg_rep_time = round(total_time / counter, 2) if counter > 0 else 0
 MET_value = MET_values.get(exercise, 3.8)
 calories_burned = round(MET_value * user_weight * (total_time / 3600), 2)
 
-summary = f"Workout finished! Exercise: {exercise}, Total reps: {counter}, Duration: {total_time}s, Avg time per rep: {avg_rep_time}s, Calories burned: {calories_burned} kcal."
-print(summary)
-speak(summary)
-
-writer.writerow([])
-writer.writerow(["Summary", "Total Reps", "Duration (s)", "Avg Rep Time (s)", "Calories Burned (kcal)"])
-writer.writerow(["", counter, total_time, avg_rep_time, calories_burned])
-
-log_file.close()
-cap.release()
-cv2.destroyAllWindows()
+summary = f"Workout finished! Last exercise: {exercise}, Total reps: {counter}, Duration: {total_time}s, Avg time per rep: {avg_rep_time}s, Calories burned
