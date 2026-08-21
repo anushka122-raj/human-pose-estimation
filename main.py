@@ -42,6 +42,15 @@ def speak(text):
     engine.runAndWait()
 
 # -----------------------------
+# Real-Time Form Feedback
+# -----------------------------
+def give_feedback(score, exercise):
+    if score < 70:
+        speak(f"Improve your form in {exercise}!")
+    elif score >= 90:
+        speak("Excellent form, keep it up!")
+
+# -----------------------------
 # MediaPipe Setup
 # -----------------------------
 mp_drawing = mp.solutions.drawing_utils
@@ -144,6 +153,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
             # -----------------------------
             if exercise == "Bicep Curl":
                 score = form_score(arm_angle, 40, 160)
+                give_feedback(score, exercise)
                 if arm_angle > 160:
                     stage = "DOWN"
                 if arm_angle < 40 and stage == "DOWN":
@@ -155,6 +165,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
 
             elif exercise == "Squat":
                 score = form_score(leg_angle, 70, 160)
+                give_feedback(score, exercise)
                 if leg_angle > 160:
                     stage = "UP"
                 if leg_angle < 70 and stage == "UP":
@@ -166,6 +177,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
 
             elif exercise == "Push-up":
                 score = form_score(pushup_angle, 60, 160)
+                give_feedback(score, exercise)
                 if pushup_angle > 160:
                     stage = "UP"
                 if pushup_angle < 60 and stage == "UP":
@@ -216,6 +228,4 @@ session_end = time.time()
 total_time = int(session_end - session_start)
 avg_rep_time = round(total_time / counter, 2) if counter > 0 else 0
 MET_value = MET_values.get(exercise, 3.8)
-calories_burned = round(MET_value * user_weight * (total_time / 3600), 2)
-
-summary = f"Workout finished! Last exercise: {exercise}, Total reps: {counter}, Duration: {total_time}s, Avg time per rep: {avg_rep_time}s, Calories burned
+calories_burned = round
