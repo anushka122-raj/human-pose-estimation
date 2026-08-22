@@ -4,6 +4,7 @@ import numpy as np
 import time
 import pyttsx3
 import csv
+import matplotlib.pyplot as plt
 
 # -----------------------------
 # Function to calculate angle
@@ -74,6 +75,7 @@ counter = 0
 stage = None
 exercise = None   # will be chosen by user
 score = 0
+rep_times = []  # track timestamps of reps
 
 # -----------------------------
 # Workout Logging Setup
@@ -167,6 +169,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                 if arm_angle < 40 and stage == "DOWN":
                     stage = "UP"
                     counter += 1
+                    rep_times.append(int(time.time() - session_start))
                     speak(f"Rep {counter} {exercise}, Form {score}%")
                     duration = int(time.time() - session_start)
                     writer.writerow([exercise, counter, stage, duration, score])
@@ -179,6 +182,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                 if leg_angle < 70 and stage == "UP":
                     stage = "DOWN"
                     counter += 1
+                    rep_times.append(int(time.time() - session_start))
                     speak(f"Rep {counter} {exercise}, Form {score}%")
                     duration = int(time.time() - session_start)
                     writer.writerow([exercise, counter, stage, duration, score])
@@ -191,6 +195,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                 if pushup_angle < 60 and stage == "UP":
                     stage = "DOWN"
                     counter += 1
+                    rep_times.append(int(time.time() - session_start))
                     speak(f"Rep {counter} {exercise}, Form {score}%")
                     duration = int(time.time() - session_start)
                     writer.writerow([exercise, counter, stage, duration, score])
@@ -217,10 +222,3 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         cv2.putText(image, f"Calories: {calories_live} kcal", (10, 190),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
 
-        cv2.imshow('Workout Tracker', image)
-
-        # -----------------------------
-        # Key Controls for switching exercises
-        # -----------------------------
-        key = cv2.waitKey(10) & 0xFF
-        if key == ord('q'):
