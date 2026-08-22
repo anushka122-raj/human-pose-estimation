@@ -31,6 +31,14 @@ def form_score(angle, min_angle, max_angle):
     return round(score, 1)
 
 # -----------------------------
+# Function to calculate calories burned
+# -----------------------------
+def calculate_calories(weight, MET, duration_sec):
+    duration_hr = duration_sec / 3600  # convert seconds to hours
+    calories = MET * weight * duration_hr
+    return round(calories, 2)
+
+# -----------------------------
 # Voice Engine Setup
 # -----------------------------
 engine = pyttsx3.init()
@@ -193,7 +201,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         # -----------------------------
         # Status Box
         # -----------------------------
-        cv2.rectangle(image, (0, 0), (340, 200), (0, 0, 0), -1)
+        cv2.rectangle(image, (0, 0), (340, 220), (0, 0, 0), -1)
         cv2.putText(image, f"Exercise: {exercise}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         cv2.putText(image, f"Reps: {counter}", (10, 70),
@@ -203,6 +211,12 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         cv2.putText(image, f"Form: {score}%", (10, 150),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
+        # Real-time calories burned
+        current_duration = int(time.time() - session_start)
+        calories_live = calculate_calories(user_weight, MET_values[exercise], current_duration)
+        cv2.putText(image, f"Calories: {calories_live} kcal", (10, 190),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
+
         cv2.imshow('Workout Tracker', image)
 
         # -----------------------------
@@ -210,22 +224,3 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         # -----------------------------
         key = cv2.waitKey(10) & 0xFF
         if key == ord('q'):
-            break
-        elif key == ord('1'):
-            exercise = "Bicep Curl"
-            speak("Now tracking Bicep Curls")
-        elif key == ord('2'):
-            exercise = "Squat"
-            speak("Now tracking Squats")
-        elif key == ord('3'):
-            exercise = "Push-up"
-            speak("Now tracking Push-ups")
-
-# -----------------------------
-# Workout Summary
-# -----------------------------
-session_end = time.time()
-total_time = int(session_end - session_start)
-avg_rep_time = round(total_time / counter, 2) if counter > 0 else 0
-MET_value = MET_values.get(exercise, 3.8)
-calories_burned = round
