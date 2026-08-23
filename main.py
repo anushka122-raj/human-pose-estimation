@@ -5,6 +5,7 @@ import time
 import pyttsx3
 import csv
 import matplotlib.pyplot as plt
+import json
 
 # -----------------------------
 # Function to calculate angle
@@ -60,6 +61,35 @@ def give_feedback(score, exercise):
         speak("Excellent form, keep it up!")
 
 # -----------------------------
+# Rest Timer Feature
+# -----------------------------
+def rest_timer(seconds=30):
+    speak(f"Rest for {seconds} seconds")
+    for i in range(seconds, 0, -5):  # announce every 5 seconds
+        time.sleep(5)
+        speak(f"{i} seconds left")
+    speak("Rest over, get ready!")
+
+# -----------------------------
+# Personal Best Tracking
+# -----------------------------
+def update_personal_best(exercise, reps):
+    try:
+        with open("personal_best.json", "r") as f:
+            best_data = json.load(f)
+    except FileNotFoundError:
+        best_data = {}
+
+    best_reps = best_data.get(exercise, 0)
+    if reps > best_reps:
+        best_data[exercise] = reps
+        with open("personal_best.json", "w") as f:
+            json.dump(best_data, f)
+        speak(f"New personal best in {exercise}: {reps} reps!")
+    else:
+        speak(f"Your best in {exercise} is {best_reps} reps.")
+
+# -----------------------------
 # MediaPipe Setup
 # -----------------------------
 mp_drawing = mp.solutions.drawing_utils
@@ -73,7 +103,7 @@ cap = cv2.VideoCapture(0)
 # Rep Counter Variables
 counter = 0
 stage = None
-exercise = None   # will be chosen by user
+exercise = None
 score = 0
 rep_times = []  # track timestamps of reps
 
@@ -200,25 +230,16 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                     duration = int(time.time() - session_start)
                     writer.writerow([exercise, counter, stage, duration, score])
 
+            # -----------------------------
+            # Rest Timer Trigger
+            # -----------------------------
+            if counter > 0 and counter % 10 == 0:
+                rest_timer(30)
+
         except:
             pass
 
         # -----------------------------
         # Status Box
         # -----------------------------
-        cv2.rectangle(image, (0, 0), (340, 220), (0, 0, 0), -1)
-        cv2.putText(image, f"Exercise: {exercise}", (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.putText(image, f"Reps: {counter}", (10, 70),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
-        cv2.putText(image, f"Stage: {stage}", (10, 110),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.putText(image, f"Form: {score}%", (10, 150),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-
-        # Real-time calories burned
-        current_duration = int(time.time() - session_start)
-        calories_live = calculate_calories(user_weight, MET_values[exercise], current_duration)
-        cv2.putText(image, f"Calories: {calories_live} kcal", (10, 190),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
-
+        cv2.rectangle(image, (0, 0),
