@@ -6,9 +6,10 @@ import pyttsx3
 import csv
 import matplotlib.pyplot as plt
 import json
+import pandas as pd
 
 # -----------------------------
-# Function to calculate angle
+# Function to calculate angle between three points
 # -----------------------------
 def calculate_angle(a, b, c):
     a = np.array(a)
@@ -23,7 +24,7 @@ def calculate_angle(a, b, c):
     return angle
 
 # -----------------------------
-# Function to calculate form score
+# Function to calculate form score based on angle deviation
 # -----------------------------
 def form_score(angle, min_angle, max_angle):
     midpoint = (min_angle + max_angle) / 2
@@ -33,7 +34,7 @@ def form_score(angle, min_angle, max_angle):
     return round(score, 1)
 
 # -----------------------------
-# Function to calculate calories burned
+# Function to calculate calories burned using MET formula
 # -----------------------------
 def calculate_calories(weight, MET, duration_sec):
     duration_hr = duration_sec / 3600  # convert seconds to hours
@@ -231,7 +232,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                     writer.writerow([exercise, counter, stage, duration, score])
 
             # -----------------------------
-            # Rest Timer Trigger
+            # Rest Timer Trigger every 10 reps
             # -----------------------------
             if counter > 0 and counter % 10 == 0:
                 rest_timer(30)
@@ -240,6 +241,6 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
             pass
 
         # -----------------------------
-        # Status Box
+        # Status Box Overlay
         # -----------------------------
-        cv2.rectangle(image, (0, 0),
+        cv2.rectangle
