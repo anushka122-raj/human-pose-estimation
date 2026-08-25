@@ -241,6 +241,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
             pass
 
         # -----------------------------
-        # Status Box Overlay
+        # Status Box Overlay (optional)
         # -----------------------------
-        cv2.rectangle
+        cv2.imshow("Workout Tracker", image)
+        if cv2.waitKey(10)
