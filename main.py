@@ -41,7 +41,7 @@ def calculate_calories(weight, MET, duration_sec):
     calories = MET * weight * duration_hr
     return round(calories, 2)
 
-# -----------------------------
+# ----------------------------
 # Voice Engine Setup
 # -----------------------------
 engine = pyttsx3.init()
