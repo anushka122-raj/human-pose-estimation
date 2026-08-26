@@ -144,6 +144,24 @@ else:
 speak(f"Starting {exercise} tracking!")
 
 # -----------------------------
+# Live Graph Setup
+# -----------------------------
+plt.ion()
+fig, ax = plt.subplots()
+ax.set_title(f"{exercise} Progress")
+ax.set_xlabel("Time (s)")
+ax.set_ylabel("Reps")
+line, = ax.plot([], [], "bo-")
+
+def update_graph():
+    line.set_xdata(rep_times)
+    line.set_ydata(range(1, len(rep_times) + 1))
+    ax.relim()
+    ax.autoscale_view()
+    plt.draw()
+    plt.pause(0.01)
+
+# -----------------------------
 # Pose Model
 # -----------------------------
 with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
@@ -204,6 +222,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                     speak(f"Rep {counter} {exercise}, Form {score}%")
                     duration = int(time.time() - session_start)
                     writer.writerow([exercise, counter, stage, duration, score])
+                    update_graph()
 
             elif exercise == "Squat":
                 score = form_score(leg_angle, 70, 160)
@@ -217,6 +236,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                     speak(f"Rep {counter} {exercise}, Form {score}%")
                     duration = int(time.time() - session_start)
                     writer.writerow([exercise, counter, stage, duration, score])
+                    update_graph()
 
             elif exercise == "Push-up":
                 score = form_score(pushup_angle, 60, 160)
@@ -226,22 +246,3 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                 if pushup_angle < 60 and stage == "UP":
                     stage = "DOWN"
                     counter += 1
-                    rep_times.append(int(time.time() - session_start))
-                    speak(f"Rep {counter} {exercise}, Form {score}%")
-                    duration = int(time.time() - session_start)
-                    writer.writerow([exercise, counter, stage, duration, score])
-
-            # -----------------------------
-            # Rest Timer Trigger every 10 reps
-            # -----------------------------
-            if counter > 0 and counter % 10 == 0:
-                rest_timer(30)
-
-        except:
-            pass
-
-        # -----------------------------
-        # Status Box Overlay (optional)
-        # -----------------------------
-        cv2.imshow("Workout Tracker", image)
-        if cv2.waitKey(10)
