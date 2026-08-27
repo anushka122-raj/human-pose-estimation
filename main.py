@@ -91,6 +91,19 @@ def update_personal_best(exercise, reps):
         speak(f"Your best in {exercise} is {best_reps} reps.")
 
 # -----------------------------
+# NEW FEATURE: Rep Speed Tracking
+# -----------------------------
+def check_rep_speed(rep_times):
+    if len(rep_times) >= 2:
+        speed = rep_times[-1] - rep_times[-2]  # time difference between last two reps
+        if speed < 2:  # too fast
+            speak("Slow down, focus on control!")
+        elif speed > 6:  # too slow
+            speak("Try to maintain a steady rhythm.")
+        else:
+            speak("Good pace!")
+
+# -----------------------------
 # MediaPipe Setup
 # -----------------------------
 mp_drawing = mp.solutions.drawing_utils
@@ -220,6 +233,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                     counter += 1
                     rep_times.append(int(time.time() - session_start))
                     speak(f"Rep {counter} {exercise}, Form {score}%")
+                    check_rep_speed(rep_times)  # NEW FEATURE
                     duration = int(time.time() - session_start)
                     writer.writerow([exercise, counter, stage, duration, score])
                     update_graph()
@@ -231,18 +245,3 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                     stage = "UP"
                 if leg_angle < 70 and stage == "UP":
                     stage = "DOWN"
-                    counter += 1
-                    rep_times.append(int(time.time() - session_start))
-                    speak(f"Rep {counter} {exercise}, Form {score}%")
-                    duration = int(time.time() - session_start)
-                    writer.writerow([exercise, counter, stage, duration, score])
-                    update_graph()
-
-            elif exercise == "Push-up":
-                score = form_score(pushup_angle, 60, 160)
-                give_feedback(score, exercise)
-                if pushup_angle > 160:
-                    stage = "UP"
-                if pushup_angle < 60 and stage == "UP":
-                    stage = "DOWN"
-                    counter += 1
