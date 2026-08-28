@@ -7,6 +7,7 @@ import csv
 import matplotlib.pyplot as plt
 import json
 import pandas as pd
+import random   # NEW for heart rate simulation
 
 # -----------------------------
 # Function to calculate angle between three points
@@ -104,6 +105,19 @@ def check_rep_speed(rep_times):
             speak("Good pace!")
 
 # -----------------------------
+# NEW FEATURE: Heart Rate Monitoring (Simulated)
+# -----------------------------
+def check_heart_rate():
+    heart_rate = random.randint(70, 160)  # simulate heart rate
+    if heart_rate < 80:
+        speak("Heart rate is low, push harder!")
+    elif heart_rate > 140:
+        speak("Heart rate is high, slow down!")
+    else:
+        speak("Heart rate is optimal.")
+    return heart_rate
+
+# -----------------------------
 # MediaPipe Setup
 # -----------------------------
 mp_drawing = mp.solutions.drawing_utils
@@ -127,7 +141,7 @@ rep_times = []  # track timestamps of reps
 session_start = time.time()
 log_file = open("workout_log.csv", mode="w", newline="")
 writer = csv.writer(log_file)
-writer.writerow(["Exercise", "Rep Count", "Stage", "Time (s)", "Form Score"])
+writer.writerow(["Exercise", "Rep Count", "Stage", "Time (s)", "Form Score", "Heart Rate"])
 
 # -----------------------------
 # User Input: Weight (kg)
@@ -231,17 +245,4 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                 if arm_angle < 40 and stage == "DOWN":
                     stage = "UP"
                     counter += 1
-                    rep_times.append(int(time.time() - session_start))
-                    speak(f"Rep {counter} {exercise}, Form {score}%")
-                    check_rep_speed(rep_times)  # NEW FEATURE
-                    duration = int(time.time() - session_start)
-                    writer.writerow([exercise, counter, stage, duration, score])
-                    update_graph()
-
-            elif exercise == "Squat":
-                score = form_score(leg_angle, 70, 160)
-                give_feedback(score, exercise)
-                if leg_angle > 160:
-                    stage = "UP"
-                if leg_angle < 70 and stage == "UP":
-                    stage = "DOWN"
+                    rep_times.append(int(time.time() - session_start
