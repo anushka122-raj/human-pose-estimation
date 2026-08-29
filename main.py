@@ -6,7 +6,6 @@ import pyttsx3
 import csv
 import matplotlib.pyplot as plt
 import json
-import pandas as pd
 import random   # NEW for heart rate simulation
 
 # -----------------------------
@@ -92,7 +91,7 @@ def update_personal_best(exercise, reps):
         speak(f"Your best in {exercise} is {best_reps} reps.")
 
 # -----------------------------
-# NEW FEATURE: Rep Speed Tracking
+# Rep Speed Tracking
 # -----------------------------
 def check_rep_speed(rep_times):
     if len(rep_times) >= 2:
@@ -105,7 +104,7 @@ def check_rep_speed(rep_times):
             speak("Good pace!")
 
 # -----------------------------
-# NEW FEATURE: Heart Rate Monitoring (Simulated)
+# Heart Rate Monitoring (Simulated)
 # -----------------------------
 def check_heart_rate():
     heart_rate = random.randint(70, 160)  # simulate heart rate
@@ -116,6 +115,21 @@ def check_heart_rate():
     else:
         speak("Heart rate is optimal.")
     return heart_rate
+
+# -----------------------------
+# NEW FEATURE: Fatigue Detection
+# -----------------------------
+def check_fatigue(rep_times, heart_rates):
+    if len(rep_times) >= 3 and len(heart_rates) >= 3:
+        avg_speed = (rep_times[-1] - rep_times[-3]) / 2
+        avg_hr = sum(heart_rates[-3:]) / 3
+
+        if avg_speed > 7 and avg_hr > 130:
+            speak("You may be fatigued. Consider resting.")
+        elif avg_speed < 2 and avg_hr < 90:
+            speak("You might not be pushing enough.")
+        else:
+            speak("Energy levels are stable.")
 
 # -----------------------------
 # MediaPipe Setup
@@ -134,6 +148,7 @@ stage = None
 exercise = None
 score = 0
 rep_times = []  # track timestamps of reps
+heart_rates = []  # track simulated heart rates
 
 # -----------------------------
 # Workout Logging Setup
@@ -230,19 +245,4 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                           landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
             elbow_r = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
                        landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
-            wrist_r = [landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,
-                       landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
-            pushup_angle = calculate_angle(shoulder_r, elbow_r, wrist_r)
-
-            # -----------------------------
-            # Rep Counting Logic per exercise
-            # -----------------------------
-            if exercise == "Bicep Curl":
-                score = form_score(arm_angle, 40, 160)
-                give_feedback(score, exercise)
-                if arm_angle > 160:
-                    stage = "DOWN"
-                if arm_angle < 40 and stage == "DOWN":
-                    stage = "UP"
-                    counter += 1
-                    rep_times.append(int(time.time() - session_start
+            wrist_r = [landmarks[mp_pose.PoseLandmark
