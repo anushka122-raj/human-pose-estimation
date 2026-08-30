@@ -6,7 +6,7 @@ import pyttsx3
 import csv
 import matplotlib.pyplot as plt
 import json
-import random   # NEW for heart rate simulation
+import random   # NEW for heart rate simulation & motivation
 
 # -----------------------------
 # Function to calculate angle between three points
@@ -132,6 +132,20 @@ def check_fatigue(rep_times, heart_rates):
             speak("Energy levels are stable.")
 
 # -----------------------------
+# NEW FEATURE: Motivation Quotes
+# -----------------------------
+quotes = [
+    "Push yourself, because no one else will do it for you!",
+    "Sweat is just fat crying!",
+    "Don’t stop when you’re tired, stop when you’re done!",
+    "The body achieves what the mind believes!",
+    "Every rep makes you stronger!"
+]
+
+def give_motivation():
+    speak(random.choice(quotes))
+
+# -----------------------------
 # MediaPipe Setup
 # -----------------------------
 mp_drawing = mp.solutions.drawing_utils
@@ -222,7 +236,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         try:
             landmarks = results.pose_landmarks.landmark
 
-            # Bicep Curl landmarks
+            # Example: Bicep Curl landmarks
             shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
                         landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
             elbow = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
@@ -231,18 +245,26 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                      landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
             arm_angle = calculate_angle(shoulder, elbow, wrist)
 
-            # Squat landmarks
-            hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-                   landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
-            knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
-                    landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
-            ankle = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
-                     landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
-            leg_angle = calculate_angle(hip, knee, ankle)
+            # Example rep detection logic (simplified)
+            if arm_angle > 160:
+                stage = "down"
+            if arm_angle < 30 and stage == "down":
+                stage = "up"
+                counter += 1
+                rep_times.append(time.time() - session_start)
+                heart_rate = check_heart_rate()
+                heart_rates.append(heart_rate)
 
-            # Push-up landmarks
-            shoulder_r = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
-                          landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
-            elbow_r = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
-                       landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
-            wrist_r = [landmarks[mp_pose.PoseLandmark
+                score = form_score(arm_angle, 30, 160)
+                give_feedback(score, exercise)
+                check_rep_speed(rep_times)
+                check_fatigue(rep_times, heart_rates)
+                give_motivation()  # NEW FEATURE: motivational quote
+
+                writer.writerow([exercise, counter, stage, round(rep_times[-1], 2), score, heart_rate])
+                update_graph()
+
+        except:
+            pass
+
+        cv2.imshow("Workout Tracker", image
