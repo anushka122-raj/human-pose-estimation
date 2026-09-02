@@ -7,6 +7,8 @@ import csv
 import matplotlib.pyplot as plt
 import json
 import random
+import os
+from datetime import datetime
 
 
 # ============================================================
@@ -39,13 +41,18 @@ def calculate_angle(a, b, c):
 def form_score(angle, min_angle, max_angle):
 
     midpoint = (min_angle + max_angle) / 2
+
     deviation = abs(angle - midpoint)
+
     max_deviation = (max_angle - min_angle) / 2
 
     if max_deviation == 0:
         return 0
 
-    score = max(0, 100 - (deviation / max_deviation) * 100)
+    score = max(
+        0,
+        100 - (deviation / max_deviation) * 100
+    )
 
     return round(score, 1)
 
@@ -87,11 +94,15 @@ def give_feedback(score, exercise):
 
     if score < 70:
 
-        speak(f"Improve your form in {exercise}!")
+        speak(
+            f"Improve your form in {exercise}!"
+        )
 
     elif score >= 90:
 
-        speak("Excellent form, keep it up!")
+        speak(
+            "Excellent form, keep it up!"
+        )
 
 
 # ============================================================
@@ -100,15 +111,21 @@ def give_feedback(score, exercise):
 
 def rest_timer(seconds=30):
 
-    speak(f"Rest for {seconds} seconds")
+    speak(
+        f"Rest for {seconds} seconds"
+    )
 
     for i in range(seconds, 0, -5):
 
         time.sleep(5)
 
-        speak(f"{i} seconds left")
+        speak(
+            f"{i} seconds left"
+        )
 
-    speak("Rest over, get ready!")
+    speak(
+        "Rest over, get ready!"
+    )
 
 
 # ============================================================
@@ -119,33 +136,52 @@ def update_personal_best(exercise, reps):
 
     try:
 
-        with open("personal_best.json", "r") as f:
+        with open(
+            "personal_best.json",
+            "r"
+        ) as f:
 
             best_data = json.load(f)
 
-    except FileNotFoundError:
+    except (FileNotFoundError, json.JSONDecodeError):
 
         best_data = {}
 
-    best_reps = best_data.get(exercise, 0)
+    best_reps = best_data.get(
+        exercise,
+        0
+    )
 
     if reps > best_reps:
 
         best_data[exercise] = reps
 
-        with open("personal_best.json", "w") as f:
+        with open(
+            "personal_best.json",
+            "w"
+        ) as f:
 
-            json.dump(best_data, f)
+            json.dump(
+                best_data,
+                f,
+                indent=4
+            )
 
         speak(
-            f"New personal best in {exercise}: {reps} reps!"
+            f"New personal best in "
+            f"{exercise}: {reps} reps!"
         )
+
+        return True
 
     else:
 
         speak(
-            f"Your best in {exercise} is {best_reps} reps."
+            f"Your best in {exercise} "
+            f"is {best_reps} reps."
         )
+
+        return False
 
 
 # ============================================================
@@ -156,19 +192,28 @@ def check_rep_speed(rep_times):
 
     if len(rep_times) >= 2:
 
-        speed = rep_times[-1] - rep_times[-2]
+        speed = (
+            rep_times[-1]
+            - rep_times[-2]
+        )
 
         if speed < 2:
 
-            speak("Slow down, focus on control!")
+            speak(
+                "Slow down, focus on control!"
+            )
 
         elif speed > 6:
 
-            speak("Try to maintain a steady rhythm.")
+            speak(
+                "Try to maintain a steady rhythm."
+            )
 
         else:
 
-            speak("Good pace!")
+            speak(
+                "Good pace!"
+            )
 
 
 # ============================================================
@@ -177,19 +222,35 @@ def check_rep_speed(rep_times):
 
 def check_heart_rate():
 
-    heart_rate = random.randint(70, 160)
+    heart_rate = random.randint(
+        70,
+        160
+    )
+
+    print(
+        f"Simulated Heart Rate: "
+        f"{heart_rate} BPM"
+    )
 
     if heart_rate < 80:
 
-        speak("Heart rate is low, push harder!")
+        speak(
+            "Heart rate is low, "
+            "push harder!"
+        )
 
     elif heart_rate > 140:
 
-        speak("Heart rate is high, slow down!")
+        speak(
+            "Heart rate is high, "
+            "slow down!"
+        )
 
     else:
 
-        speak("Heart rate is optimal.")
+        speak(
+            "Heart rate is optimal."
+        )
 
     return heart_rate
 
@@ -198,23 +259,40 @@ def check_heart_rate():
 # Fatigue Detection
 # ============================================================
 
-def check_fatigue(rep_times, heart_rates):
+def check_fatigue(
+    rep_times,
+    heart_rates
+):
 
-    if len(rep_times) >= 3 and len(heart_rates) >= 3:
+    if (
+        len(rep_times) >= 3
+        and len(heart_rates) >= 3
+    ):
 
         avg_speed = (
-            rep_times[-1] - rep_times[-3]
+            rep_times[-1]
+            - rep_times[-3]
         ) / 2
 
-        avg_hr = sum(heart_rates[-3:]) / 3
+        avg_hr = (
+            sum(heart_rates[-3:])
+            / 3
+        )
 
-        if avg_speed > 7 and avg_hr > 130:
+        if (
+            avg_speed > 7
+            and avg_hr > 130
+        ):
 
             speak(
-                "You may be fatigued. Consider resting."
+                "You may be fatigued. "
+                "Consider resting."
             )
 
-        elif avg_speed < 2 and avg_hr < 90:
+        elif (
+            avg_speed < 2
+            and avg_hr < 90
+        ):
 
             speak(
                 "You might not be pushing enough."
@@ -248,7 +326,491 @@ quotes = [
 
 def give_motivation():
 
-    speak(random.choice(quotes))
+    speak(
+        random.choice(quotes)
+    )
+
+
+# ============================================================
+# Workout History
+# ============================================================
+
+HISTORY_FILE = "workout_history.json"
+
+
+def load_workout_history():
+
+    try:
+
+        with open(
+            HISTORY_FILE,
+            "r"
+        ) as f:
+
+            return json.load(f)
+
+    except (
+        FileNotFoundError,
+        json.JSONDecodeError
+    ):
+
+        return []
+
+
+# ============================================================
+# Save Workout History
+# ============================================================
+
+def save_workout_history(
+    exercise,
+    total_reps,
+    target_reps,
+    duration,
+    avg_form,
+    avg_hr,
+    calories
+):
+
+    history = load_workout_history()
+
+    workout = {
+
+        "date": datetime.now().strftime(
+            "%Y-%m-%d"
+        ),
+
+        "time": datetime.now().strftime(
+            "%H:%M:%S"
+        ),
+
+        "exercise": exercise,
+
+        "reps": total_reps,
+
+        "target_reps": target_reps,
+
+        "duration": round(
+            duration,
+            2
+        ),
+
+        "form_score": round(
+            avg_form,
+            1
+        ),
+
+        "heart_rate": round(
+            avg_hr,
+            1
+        ),
+
+        "calories": calories
+
+    }
+
+    history.append(workout)
+
+    with open(
+        HISTORY_FILE,
+        "w"
+    ) as f:
+
+        json.dump(
+            history,
+            f,
+            indent=4
+        )
+
+    return workout
+
+
+# ============================================================
+# Get Previous Workout
+# ============================================================
+
+def get_previous_workout(
+    exercise
+):
+
+    history = load_workout_history()
+
+    same_exercise = [
+
+        workout
+        for workout in history
+        if workout["exercise"] == exercise
+
+    ]
+
+    if len(same_exercise) >= 2:
+
+        return same_exercise[-2]
+
+    return None
+
+
+# ============================================================
+# Compare Current Workout
+# ============================================================
+
+def compare_workout(
+    current_workout,
+    previous_workout
+):
+
+    if previous_workout is None:
+
+        print(
+            "\nNo previous workout "
+            "available for comparison."
+        )
+
+        speak(
+            "This is your first recorded "
+            "workout for this exercise."
+        )
+
+        return
+
+    print("\n")
+    print("=" * 55)
+    print("          PERFORMANCE COMPARISON")
+    print("=" * 55)
+
+    current_reps = current_workout[
+        "reps"
+    ]
+
+    previous_reps = previous_workout[
+        "reps"
+    ]
+
+    rep_difference = (
+        current_reps
+        - previous_reps
+    )
+
+    current_form = current_workout[
+        "form_score"
+    ]
+
+    previous_form = previous_workout[
+        "form_score"
+    ]
+
+    form_difference = (
+        current_form
+        - previous_form
+    )
+
+    print(
+        f"Previous Reps      : "
+        f"{previous_reps}"
+    )
+
+    print(
+        f"Current Reps       : "
+        f"{current_reps}"
+    )
+
+    print(
+        f"Rep Difference     : "
+        f"{rep_difference:+d}"
+    )
+
+    print(
+        f"Previous Form      : "
+        f"{previous_form}"
+    )
+
+    print(
+        f"Current Form       : "
+        f"{current_form}"
+    )
+
+    print(
+        f"Form Difference    : "
+        f"{form_difference:+.1f}"
+    )
+
+    print("=" * 55)
+
+    if rep_difference > 0:
+
+        print(
+            "Progress Status    : IMPROVED"
+        )
+
+        speak(
+            f"Great job! "
+            f"You performed "
+            f"{rep_difference} more reps "
+            f"than your previous workout."
+        )
+
+    elif rep_difference < 0:
+
+        print(
+            "Progress Status    : LOWER"
+        )
+
+        speak(
+            "Your rep count was lower "
+            "than your previous workout. "
+            "Keep training!"
+        )
+
+    else:
+
+        print(
+            "Progress Status    : STABLE"
+        )
+
+        speak(
+            "Your rep count is the same "
+            "as your previous workout."
+        )
+
+    if form_difference > 0:
+
+        print(
+            "Form Progress      : IMPROVED"
+        )
+
+    elif form_difference < 0:
+
+        print(
+            "Form Progress      : NEEDS WORK"
+        )
+
+    else:
+
+        print(
+            "Form Progress      : STABLE"
+        )
+
+
+# ============================================================
+# Workout History Display
+# ============================================================
+
+def display_workout_history():
+
+    history = load_workout_history()
+
+    print("\n")
+    print("=" * 70)
+    print("                    WORKOUT HISTORY")
+    print("=" * 70)
+
+    if not history:
+
+        print(
+            "No previous workouts found."
+        )
+
+        print("=" * 70)
+
+        return
+
+    for i, workout in enumerate(
+        history,
+        start=1
+    ):
+
+        print(
+            f"\nWorkout #{i}"
+        )
+
+        print(
+            f"Date       : "
+            f"{workout['date']}"
+        )
+
+        print(
+            f"Exercise   : "
+            f"{workout['exercise']}"
+        )
+
+        print(
+            f"Reps       : "
+            f"{workout['reps']}"
+        )
+
+        print(
+            f"Target     : "
+            f"{workout['target_reps']}"
+        )
+
+        print(
+            f"Form       : "
+            f"{workout['form_score']}"
+        )
+
+        print(
+            f"Heart Rate : "
+            f"{workout['heart_rate']} BPM"
+        )
+
+        print(
+            f"Calories   : "
+            f"{workout['calories']} kcal"
+        )
+
+    print("=" * 70)
+
+
+# ============================================================
+# Progress Analytics Graph
+# ============================================================
+
+def show_progress_graph(
+    exercise
+):
+
+    history = load_workout_history()
+
+    exercise_history = [
+
+        workout
+        for workout in history
+        if workout["exercise"] == exercise
+
+    ]
+
+    if len(exercise_history) < 2:
+
+        print(
+            "\nNot enough workout history "
+            "to display progress graph."
+        )
+
+        return
+
+    dates = [
+
+        f"{w['date']}\n#{i + 1}"
+
+        for i, w
+        in enumerate(exercise_history)
+
+    ]
+
+    reps = [
+
+        w["reps"]
+        for w in exercise_history
+
+    ]
+
+    form = [
+
+        w["form_score"]
+        for w in exercise_history
+
+    ]
+
+    calories = [
+
+        w["calories"]
+        for w in exercise_history
+
+    ]
+
+    # --------------------------------------------------------
+    # Reps Graph
+    # --------------------------------------------------------
+
+    plt.figure()
+
+    plt.plot(
+        range(1, len(reps) + 1),
+        reps,
+        "bo-"
+    )
+
+    plt.title(
+        f"{exercise} - Rep Progress"
+    )
+
+    plt.xlabel(
+        "Workout Number"
+    )
+
+    plt.ylabel(
+        "Reps"
+    )
+
+    plt.grid(True)
+
+    plt.tight_layout()
+
+    plt.show()
+
+    # --------------------------------------------------------
+    # Form Graph
+    # --------------------------------------------------------
+
+    plt.figure()
+
+    plt.plot(
+        range(1, len(form) + 1),
+        form,
+        "go-"
+    )
+
+    plt.title(
+        f"{exercise} - Form Score Progress"
+    )
+
+    plt.xlabel(
+        "Workout Number"
+    )
+
+    plt.ylabel(
+        "Form Score"
+    )
+
+    plt.ylim(
+        0,
+        100
+    )
+
+    plt.grid(True)
+
+    plt.tight_layout()
+
+    plt.show()
+
+    # --------------------------------------------------------
+    # Calories Graph
+    # --------------------------------------------------------
+
+    plt.figure()
+
+    plt.plot(
+        range(1, len(calories) + 1),
+        calories,
+        "ro-"
+    )
+
+    plt.title(
+        f"{exercise} - Calories Burned"
+    )
+
+    plt.xlabel(
+        "Workout Number"
+    )
+
+    plt.ylabel(
+        "Calories"
+    )
+
+    plt.grid(True)
+
+    plt.tight_layout()
+
+    plt.show()
 
 
 # ============================================================
@@ -267,17 +829,47 @@ def workout_summary(
 ):
 
     print("\n")
-    print("=" * 50)
-    print("           WORKOUT SUMMARY")
-    print("=" * 50)
 
-    print(f"Exercise           : {exercise}")
-    print(f"Total Reps         : {total_reps}")
-    print(f"Target Reps        : {target_reps}")
-    print(f"Workout Duration   : {round(duration, 2)} seconds")
-    print(f"Average Form Score : {round(avg_form, 1)}")
-    print(f"Average Heart Rate : {round(avg_hr, 1)} BPM")
-    print(f"Calories Burned    : {calories} kcal")
+    print("=" * 55)
+
+    print(
+        "                 WORKOUT SUMMARY"
+    )
+
+    print("=" * 55)
+
+    print(
+        f"Exercise           : {exercise}"
+    )
+
+    print(
+        f"Total Reps         : {total_reps}"
+    )
+
+    print(
+        f"Target Reps        : {target_reps}"
+    )
+
+    print(
+        f"Workout Duration   : "
+        f"{round(duration, 2)} seconds"
+    )
+
+    print(
+        f"Average Form Score : "
+        f"{round(avg_form, 1)}"
+    )
+
+    print(
+        f"Average Heart Rate : "
+        f"{round(avg_hr, 1)} BPM "
+        f"(simulated)"
+    )
+
+    print(
+        f"Calories Burned    : "
+        f"{calories} kcal"
+    )
 
     # --------------------------------------------------------
     # Goal Status
@@ -285,46 +877,83 @@ def workout_summary(
 
     if total_reps >= target_reps:
 
-        print("Goal Status        : ACHIEVED!")
+        print(
+            "Goal Status        : ACHIEVED!"
+        )
 
     else:
 
-        remaining = target_reps - total_reps
+        remaining = (
+            target_reps
+            - total_reps
+        )
 
         print(
-            f"Goal Status        : {remaining} reps remaining"
+            f"Goal Status        : "
+            f"{remaining} reps remaining"
         )
 
     # --------------------------------------------------------
-    # Calculate average rep speed
+    # Average Rep Speed
     # --------------------------------------------------------
 
     if len(rep_times) >= 2:
 
         speeds = []
 
-        for i in range(1, len(rep_times)):
+        for i in range(
+            1,
+            len(rep_times)
+        ):
 
-            speed = rep_times[i] - rep_times[i - 1]
+            speed = (
+                rep_times[i]
+                - rep_times[i - 1]
+            )
 
             speeds.append(speed)
 
-        average_speed = sum(speeds) / len(speeds)
+        average_speed = (
+            sum(speeds)
+            / len(speeds)
+        )
 
-        fastest_rep = min(speeds)
+        fastest_rep = min(
+            speeds
+        )
 
-        print(
-            f"Average Rep Speed  : {round(average_speed, 2)} sec"
+        slowest_rep = max(
+            speeds
         )
 
         print(
-            f"Fastest Rep        : {round(fastest_rep, 2)} sec"
+            f"Average Rep Speed  : "
+            f"{round(average_speed, 2)} sec"
+        )
+
+        print(
+            f"Fastest Rep        : "
+            f"{round(fastest_rep, 2)} sec"
+        )
+
+        print(
+            f"Slowest Rep        : "
+            f"{round(slowest_rep, 2)} sec"
         )
 
     else:
 
-        print("Average Rep Speed  : N/A")
-        print("Fastest Rep        : N/A")
+        print(
+            "Average Rep Speed  : N/A"
+        )
+
+        print(
+            "Fastest Rep        : N/A"
+        )
+
+        print(
+            "Slowest Rep        : N/A"
+        )
 
     # --------------------------------------------------------
     # Performance Rating
@@ -346,15 +975,21 @@ def workout_summary(
 
         rating = "Needs Improvement"
 
-    print(f"Performance Rating : {rating}")
+    print(
+        f"Performance Rating : "
+        f"{rating}"
+    )
 
-    print("=" * 50)
+    print("=" * 55)
 
     speak(
         f"Workout complete. "
-        f"You performed {total_reps} reps. "
-        f"Your average form score was {round(avg_form)}. "
-        f"Your performance was {rating}."
+        f"You performed "
+        f"{total_reps} reps. "
+        f"Your average form score "
+        f"was {round(avg_form)}. "
+        f"Your performance was "
+        f"{rating}."
     )
 
 
@@ -362,8 +997,13 @@ def workout_summary(
 # MediaPipe Setup
 # ============================================================
 
-mp_drawing = mp.solutions.drawing_utils
-mp_pose = mp.solutions.pose
+mp_drawing = (
+    mp.solutions.drawing_utils
+)
+
+mp_pose = (
+    mp.solutions.pose
+)
 
 
 # ============================================================
@@ -371,6 +1011,15 @@ mp_pose = mp.solutions.pose
 # ============================================================
 
 cap = cv2.VideoCapture(0)
+
+
+if not cap.isOpened():
+
+    print(
+        "ERROR: Could not open webcam."
+    )
+
+    exit()
 
 
 # ============================================================
@@ -409,7 +1058,9 @@ log_file = open(
     newline=""
 )
 
-writer = csv.writer(log_file)
+writer = csv.writer(
+    log_file
+)
 
 writer.writerow(
     [
@@ -446,12 +1097,17 @@ MET_values = {
 
 print("\nSelect exercise:")
 
-print("1 - Bicep Curl")
+print(
+    "1 - Bicep Curl"
+)
 
-print("2 - Squat")
+print(
+    "2 - Squat"
+)
 
-print("3 - Push-up")
-
+print(
+    "3 - Push-up"
+)
 
 choice = input(
     "Enter choice (1/2/3): "
@@ -473,14 +1129,15 @@ elif choice == "3":
 else:
 
     print(
-        "Invalid choice, defaulting to Bicep Curl"
+        "Invalid choice, "
+        "defaulting to Bicep Curl"
     )
 
     exercise = "Bicep Curl"
 
 
 # ============================================================
-# NEW FEATURE - WORKOUT GOAL
+# Workout Goal
 # ============================================================
 
 while True:
@@ -488,7 +1145,9 @@ while True:
     try:
 
         target_reps = int(
-            input("Enter your target reps: ")
+            input(
+                "Enter your target reps: "
+            )
         )
 
         if target_reps > 0:
@@ -497,19 +1156,28 @@ while True:
 
         else:
 
-            print("Please enter a positive number.")
+            print(
+                "Please enter a positive number."
+            )
 
     except ValueError:
 
-        print("Please enter a valid number.")
+        print(
+            "Please enter a valid number."
+        )
 
 
 goal_reached = False
 
 
+# ============================================================
+# Starting Message
+# ============================================================
+
 speak(
     f"Starting {exercise} tracking. "
-    f"Your target is {target_reps} reps."
+    f"Your target is "
+    f"{target_reps} reps."
 )
 
 
@@ -542,7 +1210,9 @@ line, = ax.plot(
 
 def update_graph():
 
-    line.set_xdata(rep_times)
+    line.set_xdata(
+        rep_times
+    )
 
     line.set_ydata(
         range(
@@ -557,7 +1227,9 @@ def update_graph():
 
     plt.draw()
 
-    plt.pause(0.01)
+    plt.pause(
+        0.01
+    )
 
 
 # ============================================================
@@ -565,8 +1237,11 @@ def update_graph():
 # ============================================================
 
 with mp_pose.Pose(
+
     min_detection_confidence=0.5,
+
     min_tracking_confidence=0.5
+
 ) as pose:
 
     while cap.isOpened():
@@ -574,6 +1249,10 @@ with mp_pose.Pose(
         ret, frame = cap.read()
 
         if not ret:
+
+            print(
+                "Could not read webcam frame."
+            )
 
             break
 
@@ -592,7 +1271,9 @@ with mp_pose.Pose(
         # Pose Detection
         # ----------------------------------------------------
 
-        results = pose.process(image)
+        results = pose.process(
+            image
+        )
 
         image.flags.writeable = True
 
@@ -685,7 +1366,7 @@ with mp_pose.Pose(
                 counter += 1
 
                 # --------------------------------------------
-                # NEW FEATURE - GOAL CHECK
+                # Goal Check
                 # --------------------------------------------
 
                 if (
@@ -697,8 +1378,8 @@ with mp_pose.Pose(
 
                     speak(
                         f"Congratulations! "
-                        f"You reached your goal of "
-                        f"{target_reps} reps!"
+                        f"You reached your goal "
+                        f"of {target_reps} reps!"
                     )
 
                 # --------------------------------------------
@@ -790,6 +1471,8 @@ with mp_pose.Pose(
                     ]
                 )
 
+                log_file.flush()
+
                 # --------------------------------------------
                 # Update Graph
                 # --------------------------------------------
@@ -801,7 +1484,7 @@ with mp_pose.Pose(
             pass
 
         # ====================================================
-        # Display Information on Webcam
+        # Display Information
         # ====================================================
 
         cv2.putText(
@@ -834,11 +1517,16 @@ with mp_pose.Pose(
             2
         )
 
+        # ----------------------------------------------------
+        # Heart Rate
+        # ----------------------------------------------------
+
         if heart_rates:
 
             cv2.putText(
                 image,
-                f"Heart Rate: {heart_rates[-1]} BPM",
+                f"Heart Rate: "
+                f"{heart_rates[-1]} BPM",
                 (20, 160),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
@@ -846,19 +1534,32 @@ with mp_pose.Pose(
                 2
             )
 
+            cv2.putText(
+                image,
+                "(Simulated)",
+                (20, 185),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (255, 255, 255),
+                1
+            )
+
         # ====================================================
-        # NEW FEATURE - GOAL DISPLAY
+        # Goal Display
         # ====================================================
 
         progress = min(
-            (counter / target_reps) * 100,
+            (
+                counter
+                / target_reps
+            ) * 100,
             100
         )
 
         cv2.putText(
             image,
             f"Goal: {target_reps} reps",
-            (20, 210),
+            (20, 225),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (255, 255, 255),
@@ -868,7 +1569,7 @@ with mp_pose.Pose(
         cv2.putText(
             image,
             f"Progress: {progress:.0f}%",
-            (20, 250),
+            (20, 265),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (255, 255, 255),
@@ -880,7 +1581,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "GOAL ACHIEVED!",
-                (20, 300),
+                (20, 315),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.9,
                 (0, 255, 0),
@@ -894,9 +1595,13 @@ with mp_pose.Pose(
         if results.pose_landmarks:
 
             mp_drawing.draw_landmarks(
+
                 image,
+
                 results.pose_landmarks,
+
                 mp_pose.POSE_CONNECTIONS
+
             )
 
         # ====================================================
@@ -906,7 +1611,7 @@ with mp_pose.Pose(
         cv2.putText(
             image,
             "Press Q to finish workout",
-            (20, 350),
+            (20, 365),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (255, 255, 255),
@@ -926,7 +1631,10 @@ with mp_pose.Pose(
         # Quit
         # ====================================================
 
-        if cv2.waitKey(10) & 0xFF == ord("q"):
+        if (
+            cv2.waitKey(10) & 0xFF
+            == ord("q")
+        ):
 
             break
 
@@ -950,7 +1658,10 @@ plt.ioff()
 
 session_end = time.time()
 
-duration = session_end - session_start
+duration = (
+    session_end
+    - session_start
+)
 
 
 # ============================================================
@@ -959,7 +1670,10 @@ duration = session_end - session_start
 
 if form_scores:
 
-    avg_form = sum(form_scores) / len(form_scores)
+    avg_form = (
+        sum(form_scores)
+        / len(form_scores)
+    )
 
 else:
 
@@ -972,7 +1686,10 @@ else:
 
 if heart_rates:
 
-    avg_hr = sum(heart_rates) / len(heart_rates)
+    avg_hr = (
+        sum(heart_rates)
+        / len(heart_rates)
+    )
 
 else:
 
@@ -984,9 +1701,22 @@ else:
 # ============================================================
 
 calories = calculate_calories(
+
     user_weight,
+
     MET_values[exercise],
+
     duration
+
+)
+
+
+# ============================================================
+# Get Previous Workout BEFORE Saving Current
+# ============================================================
+
+previous_workout = get_previous_workout(
+    exercise
 )
 
 
@@ -994,7 +1724,7 @@ calories = calculate_calories(
 # Personal Best
 # ============================================================
 
-update_personal_best(
+is_new_best = update_personal_best(
     exercise,
     counter
 )
@@ -1005,14 +1735,196 @@ update_personal_best(
 # ============================================================
 
 workout_summary(
+
     exercise,
+
     counter,
+
     target_reps,
+
     duration,
+
     avg_form,
+
     avg_hr,
+
     calories,
+
     rep_times
+
+)
+
+
+# ============================================================
+# Create Current Workout Record
+# ============================================================
+
+current_workout = {
+
+    "date": datetime.now().strftime(
+        "%Y-%m-%d"
+    ),
+
+    "time": datetime.now().strftime(
+        "%H:%M:%S"
+    ),
+
+    "exercise": exercise,
+
+    "reps": counter,
+
+    "target_reps": target_reps,
+
+    "duration": round(
+        duration,
+        2
+    ),
+
+    "form_score": round(
+        avg_form,
+        1
+    ),
+
+    "heart_rate": round(
+        avg_hr,
+        1
+    ),
+
+    "calories": calories
+
+}
+
+
+# ============================================================
+# Save Current Workout
+# ============================================================
+
+save_workout_history(
+
+    exercise,
+
+    counter,
+
+    target_reps,
+
+    duration,
+
+    avg_form,
+
+    avg_hr,
+
+    calories
+
+)
+
+
+# ============================================================
+# Compare With Previous Workout
+# ============================================================
+
+compare_workout(
+
+    current_workout,
+
+    previous_workout
+
+)
+
+
+# ============================================================
+# Personal Best Message
+# ============================================================
+
+if is_new_best:
+
+    print("\n🏆 NEW PERSONAL BEST!")
+
+else:
+
+    history = load_workout_history()
+
+    same_exercise = [
+
+        workout
+        for workout in history
+        if workout["exercise"] == exercise
+
+    ]
+
+    if same_exercise:
+
+        best = max(
+            workout["reps"]
+            for workout
+            in same_exercise
+        )
+
+        print(
+            f"\n🏆 Personal Best: "
+            f"{best} reps"
+        )
+
+
+# ============================================================
+# Show Workout History
+# ============================================================
+
+display_workout_history()
+
+
+# ============================================================
+# Progress Analytics
+# ============================================================
+
+print("\n")
+print(
+    "Opening progress analytics..."
+)
+
+show_progress_graph(
+    exercise
+)
+
+
+# ============================================================
+# Final Message
+# ============================================================
+
+print("\n")
+print("=" * 55)
+
+print(
+    "             WORKOUT SESSION COMPLETE"
+)
+
+print("=" * 55)
+
+print(
+    "Workout saved successfully!"
+)
+
+print(
+    "Files created/updated:"
+)
+
+print(
+    "✓ workout_log.csv"
+)
+
+print(
+    "✓ personal_best.json"
+)
+
+print(
+    "✓ workout_history.json"
+)
+
+print("=" * 55)
+
+speak(
+    "Your workout has been saved "
+    "to your workout history. "
+    "Keep training and stay consistent!"
 )
 
 
