@@ -465,6 +465,133 @@ def display_streak_and_achievements():
 
 
 # ============================================================
+# NEW FEATURE - XP + LEVEL SYSTEM
+# ============================================================
+
+XP_FILE = "workout_xp.json"
+
+
+def load_xp_data():
+    """Load persistent XP and level information."""
+    try:
+        with open(XP_FILE, "r") as f:
+            data = json.load(f)
+
+        return {
+            "xp": int(data.get("xp", 0)),
+            "level": int(data.get("level", 1)),
+            "total_xp_earned": int(data.get("total_xp_earned", 0))
+        }
+
+    except (FileNotFoundError, json.JSONDecodeError, ValueError, TypeError):
+        return {
+            "xp": 0,
+            "level": 1,
+            "total_xp_earned": 0
+        }
+
+
+def xp_required_for_level(level):
+    """Return XP needed to reach the next level."""
+    return 100 + ((level - 1) * 50)
+
+
+def calculate_workout_xp(reps, target_reps, avg_form, duration,
+                         is_new_best, current_streak):
+    """
+    Calculate XP earned for the completed workout.
+
+    XP sources:
+      - Base workout XP
+      - Reps
+      - Goal completion
+      - Good form
+      - Personal best
+      - Streak bonus
+    """
+    xp = 20
+
+    # Rep contribution, capped so very long sessions do not dominate.
+    xp += min(reps * 2, 100)
+
+    # Goal completion bonus.
+    if target_reps > 0 and reps >= target_reps:
+        xp += 50
+
+    # Form bonuses.
+    if avg_form >= 90:
+        xp += 40
+    elif avg_form >= 75:
+        xp += 25
+    elif avg_form >= 60:
+        xp += 10
+
+    # Reward a new personal best.
+    if is_new_best:
+        xp += 75
+
+    # Streak bonus.
+    xp += min(current_streak * 5, 50)
+
+    # Small bonus for completing a meaningful session.
+    if duration >= 60:
+        xp += 10
+
+    return int(xp)
+
+
+def add_workout_xp(reps, target_reps, avg_form, duration,
+                   is_new_best, current_streak):
+    """Add XP, calculate levels, and return the updated profile."""
+    data = load_xp_data()
+
+    earned_xp = calculate_workout_xp(
+        reps,
+        target_reps,
+        avg_form,
+        duration,
+        is_new_best,
+        current_streak
+    )
+
+    old_level = max(1, data.get("level", 1))
+    data["xp"] = max(0, data.get("xp", 0) + earned_xp)
+    data["total_xp_earned"] = (
+        data.get("total_xp_earned", 0) + earned_xp
+    )
+
+    # Allow XP to carry over when a level is reached.
+    while data["xp"] >= xp_required_for_level(data["level"]):
+        data["xp"] -= xp_required_for_level(data["level"])
+        data["level"] += 1
+
+    new_level = data["level"]
+
+    with open(XP_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+    leveled_up = new_level > old_level
+
+    return data, earned_xp, leveled_up
+
+
+def display_xp_status(data):
+    """Display current level and XP progress."""
+    required = xp_required_for_level(data["level"])
+    current_xp = data["xp"]
+    progress = min((current_xp / required) * 100, 100)
+
+    print("\n" + "=" * 60)
+    print("                    ⭐ XP & LEVEL")
+    print("=" * 60)
+    print(f"Current Level        : {data['level']}")
+    print(f"XP                  : {current_xp}/{required}")
+    print(f"Level Progress       : {progress:.0f}%")
+    print(f"Total XP Earned      : {data['total_xp_earned']}")
+    print("=" * 60)
+
+
+# ============================================================
 # Compare Workouts
 # ============================================================
 
@@ -1510,6 +1637,22 @@ with mp_pose.Pose(
 
 
         # ====================================================
+        # XP / Level Display
+        # ====================================================
+
+        current_xp_data = load_xp_data()
+
+        cv2.putText(
+            image,
+            f"Level: {current_xp_data['level']}  XP: {current_xp_data['xp']}/{xp_required_for_level(current_xp_data['level'])}",
+            (20, 345),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            2
+        )
+
+        # ====================================================
         # Progress
         # ====================================================
 
@@ -1568,7 +1711,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "GOAL ACHIEVED!",
-                (20, 350),
+                (20, 385),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.9,
                 (0, 255, 0),
@@ -1585,7 +1728,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "WORKOUT PAUSED",
-                (20, 405),
+                (20, 440),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1.0,
                 (0, 255, 255),
@@ -1595,7 +1738,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "Press P to resume",
-                (20, 445),
+                (20, 480),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (255, 255, 255),
@@ -1607,7 +1750,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "P = Pause | Q = Finish",
-                (20, 405),
+                (20, 440),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (255, 255, 255),
@@ -1826,6 +1969,38 @@ streak_data, new_achievements = (
 )
 
 
+# ============================================================
+# NEW FEATURE - Award XP and Check Level-Up
+# ============================================================
+
+xp_data, earned_xp, leveled_up = add_workout_xp(
+    counter,
+    target_reps,
+    avg_form,
+    duration,
+    is_new_best,
+    streak_data["current_streak"]
+)
+
+print("\n" + "=" * 60)
+print("                    ⭐ XP REWARD")
+print("=" * 60)
+print(f"XP Earned This Workout : +{earned_xp}")
+print(f"Current Level          : {xp_data['level']}")
+print(
+    f"XP Progress            : "
+    f"{xp_data['xp']}/{xp_required_for_level(xp_data['level'])}"
+)
+
+if leveled_up:
+    print("\n🎉 LEVEL UP!")
+    speak(
+        f"Level up! You are now level {xp_data['level']}!"
+    )
+
+print("=" * 60)
+
+
 print("\n" + "=" * 60)
 print("                 🔥 STREAK UPDATE")
 print("=" * 60)
@@ -1889,6 +2064,13 @@ display_streak_and_achievements()
 
 
 # ============================================================
+# XP / Level Status
+# ============================================================
+
+display_xp_status(xp_data)
+
+
+# ============================================================
 # Workout History
 # ============================================================
 
@@ -1940,6 +2122,10 @@ print(
 
 print(
     "✓ workout_streak.json"
+)
+
+print(
+    "✓ workout_xp.json"
 )
 
 print("=" * 55)
