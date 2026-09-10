@@ -1017,6 +1017,276 @@ def workout_summary(
 
 
 # ============================================================
+# SMART EXERCISE ANALYSIS
+# ============================================================
+# This feature gives each exercise its own pose measurement and
+# rep rules instead of using the same arm angle for every exercise.
+
+
+def landmark_point(landmarks, landmark_id):
+    """Return a MediaPipe landmark as [x, y]."""
+    point = landmarks[landmark_id.value]
+    return [point.x, point.y]
+
+
+def landmark_visibility(landmarks, landmark_id):
+    """Return landmark visibility, falling back safely to 0."""
+    return getattr(landmarks[landmark_id.value], "visibility", 0.0)
+
+
+def choose_visible_side(landmarks, left_ids, right_ids):
+    """
+    Choose the side with the better combined visibility.
+    This makes the tracker more tolerant when one side is hidden.
+    """
+    left_visibility = sum(
+        landmark_visibility(landmarks, landmark_id)
+        for landmark_id in left_ids
+    )
+    right_visibility = sum(
+        landmark_visibility(landmarks, landmark_id)
+        for landmark_id in right_ids
+    )
+
+    if max(left_visibility, right_visibility) < 0.45:
+        return None
+
+    return "left" if left_visibility >= right_visibility else "right"
+
+
+def get_exercise_pose(landmarks, exercise):
+    """
+    Return:
+        angle, angle_name, measurement_label, feedback
+
+    Bicep Curl:
+        shoulder-elbow-wrist angle.
+
+    Squat:
+        hip-knee-ankle angle, using the more visible side.
+
+    Push-up:
+        shoulder-elbow-wrist angle, using the more visible side.
+    """
+    if exercise == "Bicep Curl":
+        side = choose_visible_side(
+            landmarks,
+            [
+                mp_pose.PoseLandmark.LEFT_SHOULDER,
+                mp_pose.PoseLandmark.LEFT_ELBOW,
+                mp_pose.PoseLandmark.LEFT_WRIST,
+            ],
+            [
+                mp_pose.PoseLandmark.RIGHT_SHOULDER,
+                mp_pose.PoseLandmark.RIGHT_ELBOW,
+                mp_pose.PoseLandmark.RIGHT_WRIST,
+            ],
+        )
+
+        if side is None:
+            return None, "Elbow Angle", "Arm", "Move into camera view"
+
+        if side == "left":
+            shoulder_id = mp_pose.PoseLandmark.LEFT_SHOULDER
+            elbow_id = mp_pose.PoseLandmark.LEFT_ELBOW
+            wrist_id = mp_pose.PoseLandmark.LEFT_WRIST
+        else:
+            shoulder_id = mp_pose.PoseLandmark.RIGHT_SHOULDER
+            elbow_id = mp_pose.PoseLandmark.RIGHT_ELBOW
+            wrist_id = mp_pose.PoseLandmark.RIGHT_WRIST
+
+        angle = calculate_angle(
+            landmark_point(landmarks, shoulder_id),
+            landmark_point(landmarks, elbow_id),
+            landmark_point(landmarks, wrist_id),
+        )
+
+        return angle, "Elbow Angle", side.title(), ""
+
+    if exercise == "Squat":
+        side = choose_visible_side(
+            landmarks,
+            [
+                mp_pose.PoseLandmark.LEFT_HIP,
+                mp_pose.PoseLandmark.LEFT_KNEE,
+                mp_pose.PoseLandmark.LEFT_ANKLE,
+            ],
+            [
+                mp_pose.PoseLandmark.RIGHT_HIP,
+                mp_pose.PoseLandmark.RIGHT_KNEE,
+                mp_pose.PoseLandmark.RIGHT_ANKLE,
+            ],
+        )
+
+        if side is None:
+            return None, "Knee Angle", "Leg", "Show your full body"
+
+        if side == "left":
+            hip_id = mp_pose.PoseLandmark.LEFT_HIP
+            knee_id = mp_pose.PoseLandmark.LEFT_KNEE
+            ankle_id = mp_pose.PoseLandmark.LEFT_ANKLE
+        else:
+            hip_id = mp_pose.PoseLandmark.RIGHT_HIP
+            knee_id = mp_pose.PoseLandmark.RIGHT_KNEE
+            ankle_id = mp_pose.PoseLandmark.RIGHT_ANKLE
+
+        angle = calculate_angle(
+            landmark_point(landmarks, hip_id),
+            landmark_point(landmarks, knee_id),
+            landmark_point(landmarks, ankle_id),
+        )
+
+        return angle, "Knee Angle", side.title(), ""
+
+    if exercise == "Push-up":
+        side = choose_visible_side(
+            landmarks,
+            [
+                mp_pose.PoseLandmark.LEFT_SHOULDER,
+                mp_pose.PoseLandmark.LEFT_ELBOW,
+                mp_pose.PoseLandmark.LEFT_WRIST,
+            ],
+            [
+                mp_pose.PoseLandmark.RIGHT_SHOULDER,
+                mp_pose.PoseLandmark.RIGHT_ELBOW,
+                mp_pose.PoseLandmark.RIGHT_WRIST,
+            ],
+        )
+
+        if side is None:
+            return None, "Elbow Angle", "Arm", "Move into camera view"
+
+        if side == "left":
+            shoulder_id = mp_pose.PoseLandmark.LEFT_SHOULDER
+            elbow_id = mp_pose.PoseLandmark.LEFT_ELBOW
+            wrist_id = mp_pose.PoseLandmark.LEFT_WRIST
+        else:
+            shoulder_id = mp_pose.PoseLandmark.RIGHT_SHOULDER
+            elbow_id = mp_pose.PoseLandmark.RIGHT_ELBOW
+            wrist_id = mp_pose.PoseLandmark.RIGHT_WRIST
+
+        angle = calculate_angle(
+            landmark_point(landmarks, shoulder_id),
+            landmark_point(landmarks, elbow_id),
+            landmark_point(landmarks, wrist_id),
+        )
+
+        return angle, "Elbow Angle", side.title(), ""
+
+    return None, "Angle", "Body", "Unknown exercise"
+
+
+def exercise_rep_state(exercise, angle, stage):
+    """
+    Exercise-specific rep state machine.
+
+    Bicep Curl:
+        extended -> curled = 1 rep
+
+    Squat:
+        standing -> deep squat -> standing = 1 rep
+
+    Push-up:
+        arms extended -> lowered -> arms extended = 1 rep
+    """
+    if exercise == "Bicep Curl":
+        if angle >= 155:
+            return "down", False
+        if angle <= 45 and stage == "down":
+            return "up", True
+        return stage, False
+
+    if exercise == "Squat":
+        if angle >= 160:
+            return "up", stage == "bottom"
+        if angle <= 100:
+            return "bottom", False
+        return stage, False
+
+    if exercise == "Push-up":
+        if angle >= 160:
+            return "up", stage == "down"
+        if angle <= 95:
+            return "down", False
+        return stage, False
+
+    return stage, False
+
+
+def exercise_form_score(exercise, minimum_angle, maximum_angle):
+    """
+    Score the quality of the completed movement using the deepest
+    and most extended positions reached during the rep.
+    """
+    if minimum_angle is None or maximum_angle is None:
+        return 0
+
+    if exercise == "Bicep Curl":
+        bottom_score = max(
+            0,
+            100 - abs(minimum_angle - 35) * 2.0
+        )
+        top_score = max(
+            0,
+            100 - abs(maximum_angle - 170) * 1.5
+        )
+
+    elif exercise == "Squat":
+        bottom_score = max(
+            0,
+            100 - abs(minimum_angle - 90) * 2.0
+        )
+        top_score = max(
+            0,
+            100 - abs(maximum_angle - 170) * 1.5
+        )
+
+    elif exercise == "Push-up":
+        bottom_score = max(
+            0,
+            100 - abs(minimum_angle - 90) * 1.8
+        )
+        top_score = max(
+            0,
+            100 - abs(maximum_angle - 170) * 1.5
+        )
+
+    else:
+        return 0
+
+    return round((bottom_score + top_score) / 2, 1)
+
+
+def exercise_form_feedback(exercise, minimum_angle, maximum_angle):
+    """Return a short, exercise-specific form cue."""
+    if minimum_angle is None or maximum_angle is None:
+        return "Complete a full movement"
+
+    if exercise == "Bicep Curl":
+        if minimum_angle > 55:
+            return "Curl a little higher"
+        if maximum_angle < 145:
+            return "Fully extend your arm"
+        return "Good curl range"
+
+    if exercise == "Squat":
+        if minimum_angle > 110:
+            return "Squat a little deeper"
+        if maximum_angle < 150:
+            return "Stand fully upright"
+        return "Good squat depth"
+
+    if exercise == "Push-up":
+        if minimum_angle > 110:
+            return "Lower your chest more"
+        if maximum_angle < 150:
+            return "Extend your arms fully"
+        return "Good push-up range"
+
+    return "Keep moving"
+
+
+# ============================================================
 # Main Program
 # ============================================================
 
@@ -1045,6 +1315,14 @@ score = 0
 rep_times = []
 heart_rates = []
 form_scores = []
+
+# Smart exercise-analysis state
+current_angle = None
+angle_name = "Angle"
+tracking_side = ""
+rep_min_angle = None
+rep_max_angle = None
+form_feedback_text = "Get into position"
 
 goal_reached = False
 
@@ -1171,6 +1449,9 @@ writer.writerow([
     "Rep Count",
     "Stage",
     "Time (s)",
+    "Angle",
+    "Angle Type",
+    "Side",
     "Form Score",
     "Heart Rate",
     "Paused"
@@ -1329,7 +1610,7 @@ with mp_pose.Pose(
 
 
         # ====================================================
-        # Pose Processing
+        # Smart Exercise Pose Processing
         # ====================================================
 
         if (
@@ -1343,213 +1624,188 @@ with mp_pose.Pose(
                     results.pose_landmarks.landmark
                 )
 
-
-                # ====================================================
-                # Left Shoulder
-                # ====================================================
-
-                shoulder = [
-
-                    landmarks[
-                        mp_pose.PoseLandmark
-                        .LEFT_SHOULDER
-                        .value
-                    ].x,
-
-                    landmarks[
-                        mp_pose.PoseLandmark
-                        .LEFT_SHOULDER
-                        .value
-                    ].y
-                ]
-
-
-                # ====================================================
-                # Left Elbow
-                # ====================================================
-
-                elbow = [
-
-                    landmarks[
-                        mp_pose.PoseLandmark
-                        .LEFT_ELBOW
-                        .value
-                    ].x,
-
-                    landmarks[
-                        mp_pose.PoseLandmark
-                        .LEFT_ELBOW
-                        .value
-                    ].y
-                ]
-
-
-                # ====================================================
-                # Left Wrist
-                # ====================================================
-
-                wrist = [
-
-                    landmarks[
-                        mp_pose.PoseLandmark
-                        .LEFT_WRIST
-                        .value
-                    ].x,
-
-                    landmarks[
-                        mp_pose.PoseLandmark
-                        .LEFT_WRIST
-                        .value
-                    ].y
-                ]
-
-
-                # ====================================================
-                # Calculate Arm Angle
-                # ====================================================
-
-                arm_angle = calculate_angle(
-                    shoulder,
-                    elbow,
-                    wrist
+                (
+                    current_angle,
+                    angle_name,
+                    tracking_side,
+                    pose_message
+                ) = get_exercise_pose(
+                    landmarks,
+                    exercise
                 )
 
+                if current_angle is not None:
 
-                # ====================================================
-                # Rep Detection
-                # ====================================================
-
-                if arm_angle > 160:
-
-                    stage = "down"
-
-
-                if (
-                    arm_angle < 30
-                    and stage == "down"
-                ):
-
-                    stage = "up"
-
-                    counter += 1
-
-                    current_time = (
-                        active_elapsed_time()
-                    )
-
-                    rep_times.append(
-                        current_time
-                    )
-
-
-                    # =================================================
-                    # Goal Detection
-                    # =================================================
-
-                    if (
-                        counter >= target_reps
-                        and not goal_reached
-                    ):
-
-                        goal_reached = True
-
-                        speak(
-                            f"Congratulations! "
-                            f"You reached your goal "
-                            f"of {target_reps} reps!"
+                    # Track the full range of motion reached
+                    # during the current repetition.
+                    if rep_min_angle is None:
+                        rep_min_angle = current_angle
+                        rep_max_angle = current_angle
+                    else:
+                        rep_min_angle = min(
+                            rep_min_angle,
+                            current_angle
+                        )
+                        rep_max_angle = max(
+                            rep_max_angle,
+                            current_angle
                         )
 
-
-                    # =================================================
-                    # Heart Rate
-                    # =================================================
-
-                    heart_rate = (
-                        check_heart_rate()
+                    new_stage, completed_rep = (
+                        exercise_rep_state(
+                            exercise,
+                            current_angle,
+                            stage
+                        )
                     )
 
-                    heart_rates.append(
-                        heart_rate
+                    # Reset range tracking when the user first
+                    # reaches the starting position.
+                    if stage is None and new_stage is not None:
+                        rep_min_angle = current_angle
+                        rep_max_angle = current_angle
+
+                    stage = new_stage
+
+                    form_feedback_text = (
+                        exercise_form_feedback(
+                            exercise,
+                            rep_min_angle,
+                            rep_max_angle
+                        )
                     )
 
+                    if completed_rep:
 
-                    # =================================================
-                    # Form Score
-                    # =================================================
+                        counter += 1
 
-                    score = form_score(
-                        arm_angle,
-                        30,
-                        160
+                        current_time = (
+                            active_elapsed_time()
+                        )
+
+                        rep_times.append(
+                            current_time
+                        )
+
+                        # Calculate form from the actual range
+                        # of motion of this completed repetition.
+                        score = exercise_form_score(
+                            exercise,
+                            rep_min_angle,
+                            rep_max_angle
+                        )
+
+                        form_scores.append(
+                            score
+                        )
+
+                        # Prepare range tracking for the next rep.
+                        completed_min_angle = rep_min_angle
+                        completed_max_angle = rep_max_angle
+                        rep_min_angle = None
+                        rep_max_angle = None
+
+                        # =================================================
+                        # Goal Detection
+                        # =================================================
+
+                        if (
+                            counter >= target_reps
+                            and not goal_reached
+                        ):
+
+                            goal_reached = True
+
+                            speak(
+                                f"Congratulations! "
+                                f"You reached your goal "
+                                f"of {target_reps} reps!"
+                            )
+
+                        # =================================================
+                        # Heart Rate
+                        # =================================================
+
+                        heart_rate = (
+                            check_heart_rate()
+                        )
+
+                        heart_rates.append(
+                            heart_rate
+                        )
+
+                        # =================================================
+                        # Feedback
+                        # =================================================
+
+                        give_feedback(
+                            score,
+                            exercise
+                        )
+
+                        if score < 75:
+                            speak(
+                                form_feedback_text
+                            )
+
+                        # =================================================
+                        # Rep Speed
+                        # =================================================
+
+                        check_rep_speed(
+                            rep_times
+                        )
+
+                        # =================================================
+                        # Fatigue
+                        # =================================================
+
+                        check_fatigue(
+                            rep_times,
+                            heart_rates
+                        )
+
+                        # =================================================
+                        # Motivation
+                        # =================================================
+
+                        give_motivation()
+
+                        # =================================================
+                        # CSV
+                        # =================================================
+
+                        writer.writerow([
+                            exercise,
+                            counter,
+                            stage,
+                            round(
+                                current_time,
+                                2
+                            ),
+                            round(
+                                completed_max_angle,
+                                1
+                            ),
+                            angle_name,
+                            tracking_side,
+                            score,
+                            heart_rate,
+                            paused
+                        ])
+
+                        log_file.flush()
+
+                        # =================================================
+                        # Graph
+                        # =================================================
+
+                        update_graph()
+
+                else:
+                    form_feedback_text = (
+                        pose_message
                     )
-
-                    form_scores.append(
-                        score
-                    )
-
-
-                    # =================================================
-                    # Feedback
-                    # =================================================
-
-                    give_feedback(
-                        score,
-                        exercise
-                    )
-
-
-                    # =================================================
-                    # Rep Speed
-                    # =================================================
-
-                    check_rep_speed(
-                        rep_times
-                    )
-
-
-                    # =================================================
-                    # Fatigue
-                    # =================================================
-
-                    check_fatigue(
-                        rep_times,
-                        heart_rates
-                    )
-
-
-                    # =================================================
-                    # Motivation
-                    # =================================================
-
-                    give_motivation()
-
-
-                    # =================================================
-                    # CSV
-                    # =================================================
-
-                    writer.writerow([
-                        exercise,
-                        counter,
-                        stage,
-                        round(
-                            current_time,
-                            2
-                        ),
-                        score,
-                        heart_rate,
-                        paused
-                    ])
-
-                    log_file.flush()
-
-
-                    # =================================================
-                    # Graph
-                    # =================================================
-
-                    update_graph()
-
 
             except Exception as e:
 
@@ -1609,6 +1865,43 @@ with mp_pose.Pose(
 
 
         # ====================================================
+        # Smart Exercise Measurement
+        # ====================================================
+
+        if current_angle is not None:
+
+            cv2.putText(
+                image,
+                f"{angle_name}: {current_angle:.0f} deg",
+                (20, 205),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.65,
+                (255, 255, 255),
+                2
+            )
+
+            cv2.putText(
+                image,
+                f"Tracking: {tracking_side}",
+                (20, 235),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (255, 255, 255),
+                2
+            )
+
+        cv2.putText(
+            image,
+            f"Cue: {form_feedback_text}",
+            (20, 265),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            2
+        )
+
+
+        # ====================================================
         # Heart Rate
         # ====================================================
 
@@ -1645,7 +1938,7 @@ with mp_pose.Pose(
         cv2.putText(
             image,
             f"Level: {current_xp_data['level']}  XP: {current_xp_data['xp']}/{xp_required_for_level(current_xp_data['level'])}",
-            (20, 345),
+            (20, 410),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
             (255, 255, 255),
@@ -1665,7 +1958,7 @@ with mp_pose.Pose(
         cv2.putText(
             image,
             f"Goal: {target_reps} reps",
-            (20, 225),
+            (20, 270),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (255, 255, 255),
@@ -1676,7 +1969,7 @@ with mp_pose.Pose(
         cv2.putText(
             image,
             f"Progress: {progress:.0f}%",
-            (20, 265),
+            (20, 305),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (255, 255, 255),
@@ -1694,7 +1987,7 @@ with mp_pose.Pose(
         cv2.putText(
             image,
             f"Time: {elapsed:.0f}s",
-            (20, 305),
+            (20, 375),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (255, 255, 255),
@@ -1711,7 +2004,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "GOAL ACHIEVED!",
-                (20, 385),
+                (20, 460),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.9,
                 (0, 255, 0),
@@ -1728,7 +2021,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "WORKOUT PAUSED",
-                (20, 440),
+                (20, 515),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1.0,
                 (0, 255, 255),
@@ -1738,7 +2031,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "Press P to resume",
-                (20, 480),
+                (20, 535),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (255, 255, 255),
@@ -1750,7 +2043,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "P = Pause | Q = Finish",
-                (20, 440),
+                (20, 515),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (255, 255, 255),
