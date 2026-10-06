@@ -1286,6 +1286,215 @@ def exercise_form_feedback(exercise, minimum_angle, maximum_angle):
     return "Keep moving"
 
 
+
+# ============================================================
+# NEW FEATURE - ADAPTIVE WORKOUT COACH
+# ============================================================
+# The coach analyzes the completed workout and recommends the
+# next target and the main area to improve.
+#
+# It uses:
+#   - previous workout
+#   - current reps
+#   - form score
+#   - target completion
+#   - streak
+#   - personal-best status
+#
+# The recommendation is stored in adaptive_coach.json.
+
+COACH_FILE = "adaptive_coach.json"
+
+
+def load_coach_data():
+    """Load the last adaptive coaching recommendation."""
+    try:
+        with open(COACH_FILE, "r") as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict):
+            return {}
+
+        return data
+
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_coach_data(data):
+    """Save the latest adaptive coaching recommendation."""
+    with open(COACH_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+
+def recommend_next_workout(
+    exercise,
+    current_reps,
+    target_reps,
+    current_form,
+    previous_workout,
+    current_streak,
+    is_new_best
+):
+    """
+    Generate an adaptive next-workout recommendation.
+
+    The coach deliberately keeps the target conservative:
+    it increases the target when performance is strong,
+    maintains it when performance is mixed, and reduces it
+    when form is struggling.
+    """
+
+    baseline = max(1, target_reps)
+
+    # Default recommendation.
+    next_target = baseline
+    focus = "Maintain consistent form"
+    reason = "Keep building consistency."
+
+    # Strong performance:
+    # Goal achieved + good form -> progressive overload.
+    if current_reps >= target_reps and current_form >= 85:
+        next_target = max(baseline + 2, current_reps + 2)
+        focus = "Progressive overload"
+        reason = (
+            "You reached your goal with strong form. "
+            "A small rep increase is appropriate."
+        )
+
+    # Excellent form but goal not achieved:
+    # keep roughly the same target so technique stays the priority.
+    elif current_form >= 90 and current_reps < target_reps:
+        next_target = max(current_reps + 1, baseline)
+        focus = "Complete the target with excellent form"
+        reason = (
+            "Your form is excellent, but the target was not completed. "
+            "Keep the challenge manageable."
+        )
+
+    # Form needs improvement:
+    # do not aggressively increase reps.
+    elif current_form < 60:
+        next_target = max(1, min(baseline, current_reps + 1))
+        focus = "Technique and range of motion"
+        reason = (
+            "Your form score is low. Prioritize controlled movement "
+            "before increasing volume."
+        )
+
+    elif current_form < 75:
+        next_target = max(1, min(baseline + 1, current_reps + 1))
+        focus = "Improve technique"
+        reason = (
+            "Your rep performance is developing, but form should improve "
+            "before making a large increase."
+        )
+
+    # Good form with a small improvement opportunity.
+    elif current_form >= 75 and current_reps >= max(1, baseline - 2):
+        next_target = max(baseline + 1, current_reps + 1)
+        focus = "Controlled progression"
+        reason = (
+            "You are close to the target with acceptable form. "
+            "Progress gradually."
+        )
+
+    # Previous-workout comparison.
+    if previous_workout is not None:
+        previous_reps = previous_workout.get("reps", 0)
+        previous_form = previous_workout.get("form_score", 0)
+
+        if current_reps < previous_reps and current_form < previous_form:
+            next_target = max(1, min(next_target, baseline))
+            focus = "Recovery and technique"
+            reason = (
+                "Both reps and form decreased compared with your "
+                "previous session. Recover and rebuild consistency."
+            )
+
+        elif current_form > previous_form + 5:
+            focus = "Keep improving technique"
+            reason += " Your form also improved compared with the previous workout."
+
+        elif current_reps > previous_reps:
+            reason += " Your rep count improved compared with the previous workout."
+
+    # Streak reward without making the recommendation too aggressive.
+    if current_streak >= 7:
+        reason += " Your 7+ day streak shows excellent consistency."
+    elif current_streak >= 3:
+        reason += " Your streak shows good consistency."
+
+    if is_new_best:
+        reason += " You also achieved a personal best."
+
+    recommendation = {
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "time": datetime.now().strftime("%H:%M:%S"),
+        "exercise": exercise,
+        "current_reps": current_reps,
+        "current_target": target_reps,
+        "current_form": round(current_form, 1),
+        "next_target": int(next_target),
+        "focus": focus,
+        "reason": reason,
+        "streak": current_streak,
+        "personal_best": bool(is_new_best)
+    }
+
+    save_coach_data(recommendation)
+    return recommendation
+
+
+def display_adaptive_coach(recommendation):
+    """Display the adaptive coach recommendation."""
+    print("\n" + "=" * 65)
+    print("                 🧠 ADAPTIVE WORKOUT COACH")
+    print("=" * 65)
+
+    print(
+        f"Exercise              : "
+        f"{recommendation['exercise']}"
+    )
+
+    print(
+        f"Current Performance   : "
+        f"{recommendation['current_reps']} reps | "
+        f"{recommendation['current_form']} form"
+    )
+
+    print(
+        f"Recommended Next Goal : "
+        f"{recommendation['next_target']} reps"
+    )
+
+    print(
+        f"Main Focus            : "
+        f"{recommendation['focus']}"
+    )
+
+    print(
+        f"Coach Analysis        : "
+        f"{recommendation['reason']}"
+    )
+
+    print(
+        f"Consistency Streak    : "
+        f"{recommendation['streak']} day(s)"
+    )
+
+    if recommendation["personal_best"]:
+        print("Personal Best         : YES 🏆")
+
+    print("=" * 65)
+
+    speak(
+        f"Your next recommended target is "
+        f"{recommendation['next_target']} reps. "
+        f"Focus on {recommendation['focus']}."
+    )
+
+
 # ============================================================
 # Main Program
 # ============================================================
@@ -2349,6 +2558,23 @@ else:
     )
 
 
+
+# ============================================================
+# NEW FEATURE - Adaptive Coach Recommendation
+# ============================================================
+
+adaptive_recommendation = recommend_next_workout(
+    exercise,
+    counter,
+    target_reps,
+    avg_form,
+    previous_workout,
+    streak_data["current_streak"],
+    is_new_best
+)
+
+display_adaptive_coach(adaptive_recommendation)
+
 # ============================================================
 # Show All Achievements
 # ============================================================
@@ -2419,6 +2645,10 @@ print(
 
 print(
     "✓ workout_xp.json"
+)
+
+print(
+    "✓ adaptive_coach.json"
 )
 
 print("=" * 55)
