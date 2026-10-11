@@ -50,6 +50,58 @@ def form_score(angle, min_angle, max_angle):
     return round(score, 1)
 
 
+
+# ============================================================
+# NEW FEATURE: Form Consistency & Recovery Monitor
+# ============================================================
+
+def assess_form_consistency(form_scores):
+    """
+    Assess the last three completed repetitions.
+
+    This is a simple rule-based coaching aid, not a medical or
+    injury-prediction system. It recommends a rest when form scores
+    are repeatedly low or have dropped noticeably.
+    Returns (status, message, rolling_average).
+    """
+    if not form_scores:
+        return "WAITING", "Complete a rep to check form", None
+
+    recent_scores = form_scores[-3:]
+    rolling_average = sum(recent_scores) / len(recent_scores)
+
+    # A few consecutive low scores can indicate that the user
+    # should stop and reset rather than push through poor technique.
+    if len(recent_scores) >= 3 and rolling_average < 65:
+        return (
+            "REST ADVISED",
+            "Form is consistently low. Pause, rest, and reset your position.",
+            round(rolling_average, 1),
+        )
+
+    # Compare the recent average with the preceding three reps.
+    # This looks for a clear decline, rather than reacting to one
+    # imperfect repetition.
+    if len(form_scores) >= 6:
+        previous_scores = form_scores[-6:-3]
+        previous_average = sum(previous_scores) / len(previous_scores)
+
+        if previous_average - rolling_average >= 15:
+            return (
+                "FORM DECLINING",
+                "Your form score has dropped. Slow down or take a rest.",
+                round(rolling_average, 1),
+            )
+
+    if rolling_average >= 85:
+        return "GREAT", "Form is staying consistent. Keep it controlled.", round(rolling_average, 1)
+
+    if rolling_average >= 65:
+        return "OK", "Stay controlled and focus on your technique.", round(rolling_average, 1)
+
+    return "CHECK FORM", "Focus on controlled movement and your range of motion.", round(rolling_average, 1)
+
+
 # ============================================================
 # Calories
 # ============================================================
@@ -1525,6 +1577,13 @@ rep_times = []
 heart_rates = []
 form_scores = []
 
+# New feature state: avoid repeating the same recovery warning every frame.
+form_monitor_status = "WAITING"
+form_monitor_message = "Complete a rep to check form"
+form_monitor_average = None
+form_warning_active = False
+last_form_warning_rep = 0
+
 # Smart exercise-analysis state
 current_angle = None
 angle_name = "Angle"
@@ -1908,6 +1967,26 @@ with mp_pose.Pose(
                             score
                         )
 
+                        # NEW FEATURE: review the recent form trend after
+                        # each completed rep and give a recovery warning
+                        # only when the warning is new or enough reps passed.
+                        (
+                            form_monitor_status,
+                            form_monitor_message,
+                            form_monitor_average,
+                        ) = assess_form_consistency(form_scores)
+
+                        if form_monitor_status in ("REST ADVISED", "FORM DECLINING"):
+                            if (
+                                not form_warning_active
+                                or counter - last_form_warning_rep >= 5
+                            ):
+                                speak(form_monitor_message)
+                                last_form_warning_rep = counter
+                            form_warning_active = True
+                        elif form_monitor_status in ("GREAT", "OK"):
+                            form_warning_active = False
+
                         # Prepare range tracking for the next rep.
                         completed_min_angle = rep_min_angle
                         completed_max_angle = rep_max_angle
@@ -2106,6 +2185,29 @@ with mp_pose.Pose(
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
             (255, 255, 255),
+            2
+        )
+
+        # NEW FEATURE: show the rolling form-consistency assessment.
+        monitor_text = f"Form Monitor: {form_monitor_status}"
+        if form_monitor_average is not None:
+            monitor_text += f" ({form_monitor_average:.0f}/100)"
+
+        monitor_color = (
+            (0, 0, 255)
+            if form_monitor_status in ("REST ADVISED", "FORM DECLINING")
+            else (0, 255, 0)
+            if form_monitor_status == "GREAT"
+            else (0, 220, 255)
+        )
+
+        cv2.putText(
+            image,
+            monitor_text,
+            (20, 340),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.58,
+            monitor_color,
             2
         )
 
@@ -2649,6 +2751,10 @@ print(
 
 print(
     "✓ adaptive_coach.json"
+)
+
+print(
+    "✓ Form consistency monitor ran during the workout"
 )
 
 print("=" * 55)
