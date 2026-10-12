@@ -1790,6 +1790,46 @@ def active_elapsed_time():
 
 
 # ============================================================
+# NEW FEATURE - Live Rep Pace + Estimated Time to Goal
+# ============================================================
+
+def calculate_pace_metrics(rep_times, completed_reps, target_reps):
+    """Return average reps/minute, seconds/rep, and estimated seconds left.
+
+    Pace is calculated from the most recent five rep intervals so the
+    estimate can adapt if the user's rhythm changes. It is only an
+    estimate, not a promise of how long the workout will take.
+    """
+    remaining_reps = max(0, target_reps - completed_reps)
+
+    if len(rep_times) < 2:
+        return None, None, None
+
+    recent_times = rep_times[-6:]
+    intervals = [
+        recent_times[index] - recent_times[index - 1]
+        for index in range(1, len(recent_times))
+    ]
+    valid_intervals = [interval for interval in intervals if interval > 0]
+
+    if not valid_intervals:
+        return None, None, None
+
+    average_seconds_per_rep = sum(valid_intervals) / len(valid_intervals)
+    reps_per_minute = 60 / average_seconds_per_rep
+    estimated_seconds_left = remaining_reps * average_seconds_per_rep
+
+    return reps_per_minute, average_seconds_per_rep, estimated_seconds_left
+
+
+def format_duration(seconds):
+    """Format a non-negative duration as minutes and seconds."""
+    total_seconds = max(0, int(round(seconds)))
+    minutes, remaining_seconds = divmod(total_seconds, 60)
+    return f"{minutes}m {remaining_seconds:02d}s"
+
+
+# ============================================================
 # Pose Detection
 # ============================================================
 
@@ -2307,6 +2347,46 @@ with mp_pose.Pose(
 
 
         # ====================================================
+        # NEW FEATURE - Live Pace + ETA Display
+        # ====================================================
+
+        pace, seconds_per_rep, eta_seconds = calculate_pace_metrics(
+            rep_times,
+            counter,
+            target_reps
+        )
+
+        if pace is None:
+            pace_text = "Pace: complete 2 reps to estimate"
+            eta_text = "Estimated time left: calculating..."
+        else:
+            pace_text = f"Pace: {pace:.1f} reps/min ({seconds_per_rep:.1f}s/rep)"
+            if counter >= target_reps:
+                eta_text = "Estimated time left: Goal completed!"
+            else:
+                eta_text = f"Estimated time left: {format_duration(eta_seconds)}"
+
+        cv2.putText(
+            image,
+            pace_text,
+            (20, 440),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 0),
+            2
+        )
+
+        cv2.putText(
+            image,
+            eta_text,
+            (20, 465),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 0),
+            2
+        )
+
+        # ====================================================
         # Goal Achieved
         # ====================================================
 
@@ -2315,7 +2395,7 @@ with mp_pose.Pose(
             cv2.putText(
                 image,
                 "GOAL ACHIEVED!",
-                (20, 460),
+                (20, 495),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.9,
                 (0, 255, 0),
