@@ -1603,6 +1603,10 @@ paused = False
 paused_total = 0.0
 pause_started = None
 
+# NEW FEATURE - Guided Rest Timer
+REST_DURATION_SECONDS = 30
+rest_started = None
+
 
 # ============================================================
 # User Settings
@@ -1698,6 +1702,7 @@ speak(
 print("\nControls:")
 print("Q = Finish workout")
 print("P = Pause / Resume workout")
+print("R = Start a 30-second guided rest / end rest early")
 
 
 # ============================================================
@@ -1916,6 +1921,30 @@ with mp_pose.Pose(
 
             break
 
+        # ====================================================
+        # NEW FEATURE - Guided Rest Timer
+        # ====================================================
+
+        if key == ord("r"):
+            if rest_started is None and not paused:
+                rest_started = time.time()
+                speak("Rest timer started. Take a controlled thirty-second break.")
+            elif rest_started is not None:
+                # Allow the user to finish the rest early.
+                paused_total += time.time() - rest_started
+                rest_started = None
+                speak("Rest finished. Resume when you are ready.")
+
+        # Automatically finish the rest and exclude rest time from workout duration.
+        if rest_started is not None:
+            rest_elapsed = time.time() - rest_started
+            if rest_elapsed >= REST_DURATION_SECONDS:
+                paused_total += rest_elapsed
+                rest_started = None
+                speak("Rest timer complete. Resume your workout when ready.")
+
+        is_resting = rest_started is not None
+
 
         # ====================================================
         # Smart Exercise Pose Processing
@@ -1923,6 +1952,7 @@ with mp_pose.Pose(
 
         if (
             not paused
+            and not is_resting
             and results.pose_landmarks
         ):
 
@@ -2404,6 +2434,34 @@ with mp_pose.Pose(
 
 
         # ====================================================
+        # NEW FEATURE - Guided Rest Timer Display
+        # ====================================================
+
+        if rest_started is not None:
+            remaining_rest = max(
+                0,
+                REST_DURATION_SECONDS - int(time.time() - rest_started)
+            )
+            cv2.putText(
+                image,
+                f"REST TIMER: {remaining_rest}s",
+                (20, 565),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.9,
+                (0, 255, 255),
+                3
+            )
+            cv2.putText(
+                image,
+                "Relax and breathe. Press R to end early.",
+                (20, 595),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (255, 255, 255),
+                2
+            )
+
+        # ====================================================
         # Pause Display
         # ====================================================
 
@@ -2835,6 +2893,10 @@ print(
 
 print(
     "✓ Form consistency monitor ran during the workout"
+)
+
+print(
+    "✓ Guided 30-second rest timer available with the R key"
 )
 
 print("=" * 55)
