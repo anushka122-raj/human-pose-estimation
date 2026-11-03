@@ -402,24 +402,7 @@ style SPORTS fill:#B9FBC0
 
 ---
 
-# 🖥️ Demo
 
-> 📸 **Add your project screenshot or GIF here**
-
-Once you have a screenshot/GIF of the webcam detecting your pose, put it inside your repository, for example:
-
-```text
-assets/
-└── pose-demo.gif
-```
-
-Then add:
-
-```markdown
-<p align="center">
-  <img src="assets/pose-demo.gif" width="700">
-</p>
-```
 
 ### 🎥 What people should see
 
