@@ -1547,6 +1547,186 @@ def display_adaptive_coach(recommendation):
     )
 
 
+
+
+# ============================================================
+# NEW FEATURE - PERSONALIZED 7-DAY WORKOUT PLANNER
+# ============================================================
+# This is a transparent, rule-based recommendation system.
+# It uses saved workout history and form scores. It is not a
+# machine-learning model or a medical assessment.
+
+WEEKLY_PLAN_FILE = "weekly_workout_plan.json"
+
+EXERCISE_OPTIONS = ["Bicep Curl", "Squat", "Push-up"]
+
+
+def get_exercise_history_summary(history):
+    """Summarize saved performance separately for each exercise."""
+    summary = {}
+
+    for name in EXERCISE_OPTIONS:
+        records = [
+            item for item in history
+            if item.get("exercise") == name
+        ]
+
+        if records:
+            recent = records[-3:]
+            average_reps = sum(
+                int(item.get("reps", 0)) for item in recent
+            ) / len(recent)
+            average_form = sum(
+                float(item.get("form_score", 0)) for item in recent
+            ) / len(recent)
+
+            summary[name] = {
+                "sessions": len(records),
+                "average_reps": round(average_reps),
+                "average_form": round(average_form, 1)
+            }
+        else:
+            summary[name] = {
+                "sessions": 0,
+                "average_reps": 8,
+                "average_form": 0
+            }
+
+    return summary
+
+
+def build_personalized_weekly_plan(
+    history,
+    selected_exercise,
+    next_target
+):
+    """
+    Build a conservative seven-day plan using recent workout history.
+
+    The plan includes training and recovery days. Repetition targets
+    are suggestions, not instructions to train through pain or fatigue.
+    """
+    summary = get_exercise_history_summary(history)
+
+    # Pick the exercise with the lowest known form score as a technique
+    # priority. Exercises with no history are not treated as poor form.
+    trained = [
+        name for name in EXERCISE_OPTIONS
+        if summary[name]["sessions"] > 0
+    ]
+
+    if trained:
+        technique_priority = min(
+            trained,
+            key=lambda name: summary[name]["average_form"]
+        )
+    else:
+        technique_priority = selected_exercise
+
+    def suggested_reps(name):
+        stats = summary[name]
+
+        if name == selected_exercise:
+            base = next_target
+        elif stats["sessions"] == 0:
+            base = 8
+        elif stats["average_form"] < 65:
+            base = max(5, min(stats["average_reps"], 8))
+        elif stats["average_form"] < 80:
+            base = max(6, stats["average_reps"])
+        else:
+            base = min(20, stats["average_reps"] + 1)
+
+        # Keep suggestions within a modest beginner-friendly range.
+        return max(5, min(int(base), 20))
+
+    # A balanced template: four focused training days and three
+    # recovery/light days. Avoid scheduling the same exercise daily.
+    plan_template = [
+        ("Training", selected_exercise,
+         "Use controlled movement and stop if you feel pain."),
+        ("Recovery", "Rest / light walking",
+         "Allow your muscles to recover. Keep activity comfortable."),
+        ("Technique", technique_priority,
+         "Prioritize range of motion and steady technique over speed."),
+        ("Recovery", "Rest / mobility",
+         "Gentle mobility only; do not force any painful movement."),
+        ("Training", "Squat" if selected_exercise != "Squat" else "Push-up",
+         "Keep the movement controlled and take breaks when needed."),
+        ("Training", "Bicep Curl" if selected_exercise != "Bicep Curl" else "Squat",
+         "Use a manageable target and maintain consistent form."),
+        ("Recovery", "Rest / review progress",
+         "Review your workout history and prepare for the next week.")
+    ]
+
+    plan = {
+        "generated_on": datetime.now().strftime("%Y-%m-%d"),
+        "based_on": "Recent workout history and form scores",
+        "note": (
+            "Rule-based fitness suggestions, not medical advice. "
+            "Rest when needed and stop if you feel pain."
+        ),
+        "exercise_summary": summary,
+        "technique_priority": technique_priority,
+        "days": []
+    }
+
+    for index, (day_type, activity, focus) in enumerate(plan_template):
+        if activity in EXERCISE_OPTIONS:
+            reps = suggested_reps(activity)
+            sets = 2 if day_type == "Technique" else 3
+            workout_text = f"{sets} sets x {reps} reps"
+        else:
+            workout_text = "No rep target"
+
+        plan["days"].append({
+            "day": f"Day {index + 1}",
+            "type": day_type,
+            "activity": activity,
+            "suggested_volume": workout_text,
+            "focus": focus
+        })
+
+    with open(WEEKLY_PLAN_FILE, "w", encoding="utf-8") as file:
+        json.dump(plan, file, indent=4, ensure_ascii=False)
+
+    return plan
+
+
+def display_personalized_weekly_plan(plan):
+    """Print the generated seven-day workout plan."""
+    print("\n" + "=" * 72)
+    print("             PERSONALIZED 7-DAY WORKOUT PLAN")
+    print("=" * 72)
+    print(f"Generated on       : {plan['generated_on']}")
+    print(f"Technique priority : {plan['technique_priority']}")
+    print("-" * 72)
+
+    for day in plan["days"]:
+        print(f"\n{day['day']} - {day['type']}")
+        print(f"Activity : {day['activity']}")
+        print(f"Volume   : {day['suggested_volume']}")
+        print(f"Focus    : {day['focus']}")
+
+    print("\n" + "-" * 72)
+    print("Recent performance used by the planner:")
+
+    for name, stats in plan["exercise_summary"].items():
+        if stats["sessions"] > 0:
+            print(
+                f"- {name}: {stats['sessions']} session(s), "
+                f"avg {stats['average_reps']} reps, "
+                f"avg form {stats['average_form']}/100"
+            )
+        else:
+            print(f"- {name}: no saved history yet; using a starter target.")
+
+    print("\nImportant: This is a rule-based suggestion, not a medical plan.")
+    print("Rest when needed. Stop if you feel pain or dizziness.")
+    print(f"Saved to: {WEEKLY_PLAN_FILE}")
+    print("=" * 72)
+
+
 # ============================================================
 # Main Program
 # ============================================================
@@ -2815,6 +2995,20 @@ adaptive_recommendation = recommend_next_workout(
 
 display_adaptive_coach(adaptive_recommendation)
 
+
+# ============================================================
+# NEW FEATURE - Generate Personalized Weekly Plan
+# ============================================================
+
+weekly_plan = build_personalized_weekly_plan(
+    load_workout_history(),
+    exercise,
+    adaptive_recommendation["next_target"]
+)
+
+display_personalized_weekly_plan(weekly_plan)
+
+
 # ============================================================
 # Show All Achievements
 # ============================================================
@@ -2889,6 +3083,14 @@ print(
 
 print(
     "✓ adaptive_coach.json"
+)
+
+print(
+    "✓ weekly_workout_plan.json"
+)
+
+print(
+    "✓ Personalized 7-day workout plan generated"
 )
 
 print(
